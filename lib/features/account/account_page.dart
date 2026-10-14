@@ -7,6 +7,7 @@ import '../../core/permission.dart';
 import '../../core/theme.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
+import '../../widgets/skeleton.dart';
 
 class AccountPage extends ConsumerStatefulWidget {
   const AccountPage({super.key});
@@ -30,6 +31,8 @@ class _AccountPageState extends ConsumerState<AccountPage> {
   @override
   void initState() {
     super.initState();
+    final cached = ref.read(apiProvider).peekMyOffice();
+    if (cached != null) _chain = asObj(cached['data']);
     _load();
   }
 
@@ -165,7 +168,7 @@ class _AccountPageState extends ConsumerState<AccountPage> {
         SectionCard(
           title: 'ទីតាំងការងារ',
           child: _loading && _chain == null
-              ? const Text('កំពុងផ្ទុក...', style: TextStyle(color: AppColors.muted))
+              ? const SkeletonLines(lines: 4)
               : Column(
                   children: [
                     for (final (i, l) in const [
@@ -233,10 +236,8 @@ class _AccountPageState extends ConsumerState<AccountPage> {
                 ),
               FilledButton.icon(
                 onPressed: _saving ? null : _changePassword,
-                icon: _saving
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.key_rounded),
-                label: const Text('ប្តូរពាក្យសម្ងាត់'),
+                icon: const Icon(Icons.key_rounded),
+                label: Text(_saving ? 'កំពុងរក្សាទុក...' : 'ប្តូរពាក្យសម្ងាត់'),
               ),
             ],
           ),

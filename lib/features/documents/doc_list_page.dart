@@ -9,6 +9,7 @@ import '../../core/json.dart';
 import '../../core/theme.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
+import '../../widgets/skeleton.dart';
 import '../../widgets/select_sheet.dart';
 import 'doc_helpers.dart';
 
@@ -65,24 +66,32 @@ class _DocListPageState extends ConsumerState<DocListPage> {
     if (reset) {
       _page = 1;
     }
+    final params = <String, dynamic>{'page': _page, 'limit': _pageSize};
+    if (_isIn) {
+      if (_status.isNotEmpty) params['status'] = _status;
+    } else {
+      params['box'] = 'out';
+      if (_search.isNotEmpty) {
+        params['q'] = _search;
+        params['q_key'] = _searchKeys;
+      }
+    }
+    // the last first page, on screen at once; the new answer replaces it quietly
+    if (reset && _rows.isEmpty) {
+      final saved = _isIn ? api.peekInbox(params) : api.peekDocumentList(params);
+      if (saved != null) {
+        final pg = asObj(saved['pagination']);
+        _rows.addAll(asList(saved['data']));
+        _totalPages = asInt(pg['totalPages']).clamp(1, 100000);
+        _total = asInt(pg['total']);
+      }
+    }
     setState(() {
       _loading = true;
       _error = '';
     });
     try {
-      final params = <String, dynamic>{'page': _page, 'limit': _pageSize};
-      Json res;
-      if (_isIn) {
-        if (_status.isNotEmpty) params['status'] = _status;
-        res = await api.inbox(params);
-      } else {
-        params['box'] = 'out';
-        if (_search.isNotEmpty) {
-          params['q'] = _search;
-          params['q_key'] = _searchKeys;
-        }
-        res = await api.documentList(params);
-      }
+      final res = _isIn ? await api.inbox(params) : await api.documentList(params);
       final pg = asObj(res['pagination']);
       if (!mounted) return;
       setState(() {
@@ -252,10 +261,7 @@ class _DocListPageState extends ConsumerState<DocListPage> {
       itemBuilder: (_, i) {
         if (i == rows.length) {
           if (_loading) {
-            return const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
-            );
+            return const SkeletonFooter();
           }
           return const SizedBox.shrink();
         }

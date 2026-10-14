@@ -8,6 +8,7 @@ import '../../core/theme.dart';
 import '../../data/services.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
+import '../../widgets/skeleton.dart';
 import '../../widgets/select_sheet.dart';
 
 enum FieldType { text, email, tel, password, textarea, select, checkbox }
@@ -115,17 +116,28 @@ class _CrudPageState extends ConsumerState<CrudPage> {
   Future<void> _load({bool reset = false}) async {
     if (_loading) return;
     if (reset) _page = 1;
+    final params = <String, dynamic>{
+      'page': _page,
+      'limit': 20,
+      if (_search.isNotEmpty) 'q': _search,
+      if (_search.isNotEmpty) 'q_key': widget.searchKeys,
+    };
+    // the last first page, on screen at once; the new answer replaces it quietly
+    if (reset && _rows.isEmpty) {
+      final saved = _res.peekList(params);
+      if (saved != null) {
+        final pg = asObj(saved['pagination']);
+        _rows.addAll(asList(saved['data']));
+        _totalPages = asInt(pg['totalPages']).clamp(1, 100000);
+        _total = asInt(pg['total']);
+      }
+    }
     setState(() {
       _loading = true;
       _error = '';
     });
     try {
-      final res = await _res.list({
-        'page': _page,
-        'limit': 20,
-        if (_search.isNotEmpty) 'q': _search,
-        if (_search.isNotEmpty) 'q_key': widget.searchKeys,
-      });
+      final res = await _res.list(params);
       final pg = asObj(res['pagination']);
       if (!mounted) return;
       setState(() {
@@ -272,9 +284,7 @@ class _CrudPageState extends ConsumerState<CrudPage> {
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (_, i) {
         if (i == _rows.length) {
-          return _loading
-              ? const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator(strokeWidth: 2.4)))
-              : const SizedBox.shrink();
+          return _loading ? const SkeletonFooter() : const SizedBox.shrink();
         }
         final row = _rows[i];
         final inactive = row['status'] == false;
@@ -477,9 +487,7 @@ class _FormSheetState extends ConsumerState<_FormSheet> {
                       flex: 2,
                       child: FilledButton(
                         onPressed: _saving ? null : _save,
-                        child: _saving
-                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : const Text('រក្សាទុក'),
+                        child: Text(_saving ? 'កំពុងរក្សាទុក...' : 'រក្សាទុក'),
                       ),
                     ),
                   ],

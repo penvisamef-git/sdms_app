@@ -39,6 +39,8 @@ class AuthController extends Notifier<AuthState> {
 
   Future<void> _load() async {
     final saved = await ref.read(authStoreProvider).read();
+    // the last answers saved on the device: screens paint them at once while fresh data loads
+    if (saved != null) await ref.read(apiClientProvider).restore();
     state = AuthState(ready: true, user: saved);
     if (saved != null) {
       refreshProfile();
@@ -54,7 +56,7 @@ class AuthController extends Notifier<AuthState> {
     data.remove('password');
     if (data['user_data'] is Map) (data['user_data'] as Map).remove('password');
     await ref.read(authStoreProvider).save(data);
-    ref.read(apiClientProvider).clearCache();
+    await ref.read(apiClientProvider).wipe();
     state = AuthState(ready: true, user: data);
     _registerPush();
   }
@@ -102,7 +104,7 @@ class AuthController extends Notifier<AuthState> {
   Future<void> _clear() async {
     PushService.instance.dropToken();
     await ref.read(authStoreProvider).clear();
-    ref.read(apiClientProvider).clearCache();
+    await ref.read(apiClientProvider).wipe();
     state = const AuthState(ready: true);
   }
 }

@@ -9,6 +9,7 @@ import 'package:pdfrx/pdfrx.dart';
 import '../../core/json.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/skeleton.dart';
 import '../../widgets/select_sheet.dart';
 import 'annotation_painter.dart';
 import 'annotations.dart';
@@ -605,15 +606,8 @@ class _PdfAnnotatorPageState extends State<PdfAnnotatorPage> {
   Widget _body() {
     if (_loadError.isNotEmpty) return ErrorState(_loadError, onRetry: _download);
     if (_doc == null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(width: 160, child: LinearProgressIndicator(value: _downloadPct)),
-            const SizedBox(height: 12),
-            Text(_downloadPct == null ? 'កំពុងផ្ទុក...' : 'កំពុងទាញយក ${(_downloadPct! * 100).round()}%'),
-          ],
-        ),
+      return SkeletonPage(
+        label: _downloadPct == null ? 'កំពុងផ្ទុក...' : 'កំពុងទាញយក ${(_downloadPct! * 100).round()}%',
       );
     }
 
@@ -693,7 +687,7 @@ class _PdfAnnotatorPageState extends State<PdfAnnotatorPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const CircularProgressIndicator(),
+                        const SizedBox(width: 200, child: SkeletonLines(lines: 2)),
                         const SizedBox(height: 16),
                         Text(_savingText),
                       ],

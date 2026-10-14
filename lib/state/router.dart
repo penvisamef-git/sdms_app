@@ -16,6 +16,7 @@ import '../features/documents/doc_view_page.dart';
 import '../features/documents/file_viewer_page.dart';
 import '../features/home/home_page.dart';
 import '../features/shell/app_shell.dart';
+import '../widgets/skeleton.dart';
 import 'providers.dart';
 
 final _rootKey = GlobalKey<NavigatorState>(debugLabel: 'root');
@@ -50,7 +51,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/splash',
-        builder: (_, __) => const Scaffold(body: Center(child: CircularProgressIndicator())),
+        builder: (_, __) => const SkeletonSplash(),
       ),
       GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
       ShellRoute(

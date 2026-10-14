@@ -13,6 +13,7 @@ import '../../data/api_client.dart';
 import '../../data/cloudinary_upload.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
+import '../../widgets/skeleton.dart';
 import '../../widgets/org_tree_picker.dart';
 import '../../widgets/receiver_card.dart';
 import '../../widgets/select_sheet.dart';
@@ -55,6 +56,12 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
   @override
   void initState() {
     super.initState();
+    // what we saw last time, on screen at once (the list row already told us most of it)
+    final api = ref.read(apiProvider);
+    final savedDoc = api.peekDocument(widget.id);
+    if (savedDoc != null) _doc = asObj(savedDoc['data']);
+    final savedTrack = api.peekDocumentTracking(widget.id);
+    if (savedTrack != null) _tracking = asObj(savedTrack['data']);
     _load();
   }
 
@@ -365,7 +372,7 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
         ],
       ),
       body: _loading && doc == null
-          ? const LoadingList(count: 4)
+          ? const SkeletonDetail()
           : _error.isNotEmpty && doc == null
               ? ErrorState(_error, onRetry: _load)
               : RefreshIndicator(
@@ -424,10 +431,8 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
               const SizedBox(height: 12),
               FilledButton.icon(
                 onPressed: _busy ? null : _receive,
-                icon: _busy
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.move_to_inbox_rounded),
-                label: const Text('ទទួលឯកសារ'),
+                icon: const Icon(Icons.move_to_inbox_rounded),
+                label: Text(_busy ? 'កំពុងទទួល...' : 'ទទួលឯកសារ'),
               ),
             ],
           ),

@@ -8,6 +8,7 @@ import '../../core/permission.dart';
 import '../../core/theme.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
+import '../../widgets/skeleton.dart';
 import '../../widgets/select_sheet.dart';
 import '../documents/doc_helpers.dart';
 import 'home_charts.dart';
@@ -31,7 +32,6 @@ class _HomePageState extends ConsumerState<HomePage> {
   String _month = currentMonthValue();
   String _dateField = 'created_date';
   Json? _data;
-  bool _loading = true;
   String _error = '';
   int _seq = 0;
   int _refreshKey = 0;
@@ -44,11 +44,14 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   Future<void> _load({bool force = false}) async {
     final mine = ++_seq;
-    if (force) ref.read(apiClientProvider).clearCache();
-    setState(() {
-      _loading = true;
-      _error = '';
-    });
+    if (force) {
+      ref.read(apiClientProvider).clearCache();
+    } else {
+      // the last answer for this month, on screen at once; the new one replaces it quietly
+      final saved = ref.read(apiProvider).peekHomeSummary(month: _month, dateField: _dateField);
+      if (saved != null) _data = asObj(saved['data']);
+    }
+    setState(() => _error = '');
     try {
       final res = await ref.read(apiProvider).homeSummary(month: _month, dateField: _dateField);
       if (mine != _seq || !mounted) return;
@@ -58,8 +61,6 @@ class _HomePageState extends ConsumerState<HomePage> {
       });
     } catch (e) {
       if (mine == _seq && mounted) setState(() => _error = e.toString());
-    } finally {
-      if (mine == _seq && mounted) setState(() => _loading = false);
     }
   }
 
@@ -167,7 +168,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           if (_error.isNotEmpty && data == null)
             ErrorState(_error, onRetry: () => _load(force: true))
           else if (data == null)
-            const SizedBox(height: 300, child: Center(child: CircularProgressIndicator()))
+            const SkeletonHome()
           else ...[
             if (_error.isNotEmpty)
               Padding(
@@ -176,7 +177,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               ),
             AnimatedOpacity(
               duration: const Duration(milliseconds: 150),
-              opacity: _loading ? 0.55 : 1,
+              opacity: 1,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -511,19 +512,27 @@ class _NewDocumentsCardState extends ConsumerState<_NewDocumentsCard> {
 
   Future<void> _load() async {
     final mine = ++_seq;
+    final params = <String, dynamic>{
+      'month': widget.month,
+      'date_field': widget.dateField,
+      'box': _box,
+      'page': _page,
+      'limit': 5,
+      if (_allTime) 'all_time': 'true',
+    };
+    final saved = ref.read(apiProvider).peekHomeNewDocuments(params);
+    if (saved != null) {
+      final pg = asObj(saved['pagination']);
+      _rows = asList(saved['data']);
+      _total = asInt(pg['total']);
+      _totalPages = asInt(pg['totalPages']).clamp(1, 100000);
+    }
     setState(() {
       _loading = true;
       _error = '';
     });
     try {
-      final res = await ref.read(apiProvider).homeNewDocuments({
-        'month': widget.month,
-        'date_field': widget.dateField,
-        'box': _box,
-        'page': _page,
-        'limit': 5,
-        if (_allTime) 'all_time': 'true',
-      });
+      final res = await ref.read(apiProvider).homeNewDocuments(params);
       if (mine != _seq || !mounted) return;
       final pg = asObj(res['pagination']);
       setState(() {
@@ -590,11 +599,11 @@ class _NewDocumentsCardState extends ConsumerState<_NewDocumentsCard> {
           ),
           AnimatedOpacity(
             duration: const Duration(milliseconds: 150),
-            opacity: _loading ? 0.5 : 1,
+            opacity: 1,
             child: _error.isNotEmpty
                 ? Text(_error, style: const TextStyle(color: AppColors.danger))
                 : _rows.isEmpty
-                    ? (_loading ? const SizedBox(height: 120) : const EmptyState('គ្មានឯកសារថ្មី'))
+                    ? (_loading ? const SkeletonLines(lines: 5) : const EmptyState('គ្មានឯកសារថ្មី'))
                     : Column(
                         children: [
                           for (final d in _rows)

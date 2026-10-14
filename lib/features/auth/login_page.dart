@@ -177,13 +177,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             const SizedBox(height: 20),
                             FilledButton(
                               onPressed: _loading ? null : _submit,
-                              child: _loading
-                                  ? const SizedBox(
-                                      width: 22,
-                                      height: 22,
-                                      child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
-                                    )
-                                  : const Text('ចូលគណនី'),
+                              child: Text(_loading ? 'កំពុងចូល...' : 'ចូលគណនី'),
                             ),
                           ],
                         ),

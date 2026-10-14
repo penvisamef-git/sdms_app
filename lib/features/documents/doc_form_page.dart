@@ -328,9 +328,7 @@ class _DocFormPageState extends ConsumerState<DocFormPage> {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                 child: FilledButton.icon(
                   onPressed: _busy ? null : _submit,
-                  icon: _saving
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.save_outlined),
+                  icon: const Icon(Icons.save_outlined),
                   label: Text(_saving
                       ? (_uploadPct != null ? 'កំពុង upload ${(_uploadPct! * 100).round()}%' : 'កំពុងរក្សាទុក...')
                       : 'រក្សាទុក'),

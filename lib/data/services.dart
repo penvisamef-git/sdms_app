@@ -9,6 +9,7 @@ class Resource {
   final String route;
 
   Future<Json> list([Map<String, dynamic>? params]) => _c.get('/$route', params: params);
+  Json? peekList([Map<String, dynamic>? params]) => _c.peek('/$route', params: params);
   Future<Json> all([Map<String, dynamic>? params]) => _c.get('/$route-all', params: params);
   Future<Json> get(String id) => _c.get('/$route/$id');
   Future<Json> create(Object data) => _c.post('/$route', body: data);
@@ -91,6 +92,17 @@ class Api {
       client.get('/home/new-documents', params: params);
 
   Future<Json> myOffice() => client.get('/home/my-office');
+
+  // Last saved answers (any age) to paint a screen at once; null when there is none yet.
+  Json? peekHomeSummary({required String month, required String dateField}) =>
+      client.peek('/home/summary', params: {'month': month, 'date_field': dateField});
+  Json? peekHomeNewDocuments(Map<String, dynamic> params) => client.peek('/home/new-documents', params: params);
+  Json? peekInbox(Map<String, dynamic> params) => client.peek('/document-transfer/inbox', params: params);
+  Json? peekDocumentList(Map<String, dynamic> params) => client.peek('/document', params: params);
+  Json? peekDocument(String id) => client.peek('/document/$id');
+  Json? peekDocumentTracking(String id) => client.peek('/document/$id/tracking');
+  Json? peekOrgTree(String key) => client.peek('/master-data/$key-tree', params: {'include_users': true});
+  Json? peekMyOffice() => client.peek('/home/my-office');
 
   // ---------------- Org tree ----------------
   /// Organisation tree with the users of every office (key: unit | general-directorate | department).

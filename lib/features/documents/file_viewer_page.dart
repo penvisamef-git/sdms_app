@@ -8,6 +8,7 @@ import '../../core/format.dart';
 import '../../core/json.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/skeleton.dart';
 import '../pdf/pdf_annotator_page.dart';
 
 const _imageExt = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'heic'];
@@ -103,7 +104,7 @@ class _FileViewerPageState extends State<FileViewerPage> {
         child: Center(
           child: Image.network(
             url,
-            loadingBuilder: (_, child, p) => p == null ? child : const Center(child: CircularProgressIndicator()),
+            loadingBuilder: (_, child, p) => p == null ? child : const SkeletonPage(),
             errorBuilder: (_, __, ___) => const ErrorState('មិនអាចបង្ហាញរូបភាពបានទេ'),
           ),
         ),

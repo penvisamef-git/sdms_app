@@ -5,6 +5,7 @@ import '../../core/json.dart';
 import '../../core/theme.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
+import '../../widgets/skeleton.dart';
 
 /// Organisation structure (same as the web "រចនាសម្ព័ន្ធ" tab):
 /// Unit → General directorate → Department → Office → Users.
@@ -114,6 +115,16 @@ class _OrgTreePageState extends ConsumerState<OrgTreePage> {
   }
 
   Future<void> _load() async {
+    if (_roots.isEmpty && widget.masterKey != 'office') {
+      final saved = ref.read(apiProvider).peekOrgTree(widget.masterKey);
+      if (saved != null) {
+        _roots = asList(saved['data']).map(_build).toList();
+        if (_roots.isNotEmpty && _firstLoad) {
+          _firstLoad = false;
+          _open.addAll(_roots.map((r) => r.id));
+        }
+      }
+    }
     setState(() {
       _loading = true;
       _error = '';
@@ -250,7 +261,7 @@ class _OrgTreePageState extends ConsumerState<OrgTreePage> {
           ),
           Expanded(
             child: _loading && _roots.isEmpty
-                ? const LoadingList()
+                ? const SkeletonList(compact: true)
                 : _error.isNotEmpty
                     ? ErrorState(_error, onRetry: _load)
                     : rows.isEmpty

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme.dart';
+import 'skeleton.dart';
 
 enum Tone { info, warn, done, danger, neutral }
 
@@ -177,26 +178,14 @@ class ErrorState extends StatelessWidget {
   }
 }
 
-/// Grey animated-free placeholder bars while a list loads.
+/// Placeholder rows while a list loads (shimmering skeleton, see skeleton.dart).
 class LoadingList extends StatelessWidget {
-  const LoadingList({super.key, this.count = 5});
+  const LoadingList({super.key, this.count = 6});
 
   final int count;
 
   @override
-  Widget build(BuildContext context) {
-    final c = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06);
-    return ListView.separated(
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(16),
-      itemCount: count,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (_, __) => Container(
-        height: 88,
-        decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(18)),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => SkeletonList(count: count);
 }
 
 void showSnack(BuildContext context, String message, {bool error = false}) {
