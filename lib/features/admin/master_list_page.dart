@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/json.dart';
 import '../../data/services.dart';
@@ -147,6 +148,8 @@ final Map<String, _Cfg> _configs = {
   ),
 };
 
+const _treeKeys = {'unit', 'general-directorate', 'department', 'office'};
+
 /// One master-data list, picked by [masterKey] (see /admin/master/:key in the router).
 class MasterListPage extends StatelessWidget {
   const MasterListPage({super.key, required this.masterKey});
@@ -167,6 +170,17 @@ class MasterListPage extends StatelessWidget {
       searchKeys: c.searchKeys,
       rowTitle: c.rowTitle,
       rowSubtitle: c.rowSubtitle,
+      appBarActions: [
+        // organisation lists also have the structure tree (same as the web "រចនាសម្ព័ន្ធ" tab)
+        if (_treeKeys.contains(masterKey))
+          Builder(
+            builder: (ctx) => IconButton(
+              tooltip: 'រចនាសម្ព័ន្ធ',
+              icon: const Icon(Icons.account_tree_outlined),
+              onPressed: () => ctx.push('/admin/tree/$masterKey', extra: c.title),
+            ),
+          ),
+      ],
     );
   }
 }

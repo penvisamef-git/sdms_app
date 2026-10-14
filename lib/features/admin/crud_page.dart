@@ -51,6 +51,7 @@ class CrudPage extends ConsumerStatefulWidget {
     this.rowSubtitle,
     this.canDelete,
     this.rowActions,
+    this.appBarActions = const [],
   });
 
   final String title;
@@ -63,6 +64,9 @@ class CrudPage extends ConsumerStatefulWidget {
 
   /// Extra buttons in each row's menu: label, icon, action.
   final List<RowAction> Function(Json row)? rowActions;
+
+  /// Extra icon buttons in the top bar.
+  final List<Widget> appBarActions;
 
   @override
   ConsumerState<CrudPage> createState() => _CrudPageState();
@@ -199,6 +203,7 @@ class _CrudPageState extends ConsumerState<CrudPage> {
       appBar: AppBar(
         title: Text(widget.title),
         actions: [
+          ...widget.appBarActions,
           if (_total > 0)
             Padding(
               padding: const EdgeInsets.only(right: 16),

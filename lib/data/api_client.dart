@@ -37,7 +37,16 @@ class ApiClient {
   final void Function() onUnauthorized;
 
   // ---- cache (same idea as the web api.client.js) ----
-  static const Duration _cacheFor = Duration(seconds: 60);
+  static const Duration _cacheFor = Duration(seconds: 120);
+  // screens people jump back to (tabs, back from a document): instant for a few seconds.
+  // Pull-to-refresh and every save clear the cache, so nothing stays stale after the user's own actions.
+  static const Duration _shortFor = Duration(seconds: 20);
+  static final List<RegExp> _shortLived = [
+    RegExp(r'^/home/(summary|new-documents)'),
+    RegExp(r'^/document-transfer/(inbox|sent)'),
+    RegExp(r'^/document(\?.*)?$'),
+    RegExp(r'^/document/[^/?]+(/tracking)?$'),
+  ];
   static final List<RegExp> _cacheable = [
     RegExp(r'^/master-data/'),
     RegExp(r'^/users-all'),
@@ -48,7 +57,11 @@ class ApiClient {
   final Map<String, ({DateTime at, Json json})> _cache = {};
   final Map<String, Future<Json>> _inflight = {};
 
-  bool _isCacheable(String path) => _cacheable.any((re) => re.hasMatch(path));
+  Duration? _ttlFor(String path) {
+    if (_cacheable.any((re) => re.hasMatch(path))) return _cacheFor;
+    if (_shortLived.any((re) => re.hasMatch(path))) return _shortFor;
+    return null;
+  }
 
   void clearCache() {
     _cache.clear();
@@ -69,17 +82,19 @@ class ApiClient {
   String _encodeObject(Object v) => jsonEncode(v);
 
   Future<Json> get(String path, {Map<String, dynamic>? params}) async {
-    if (!_isCacheable(path)) return _request('GET', path, params: params);
+    final ttl = _ttlFor(path);
+    if (ttl == null) return _request('GET', path, params: params);
 
     final clean = _cleanParams(params);
     final key = '$path?${Uri(queryParameters: clean?.map((k, v) => MapEntry(k, '$v'))).query}';
     final hit = _cache[key];
-    if (hit != null && DateTime.now().difference(hit.at) < _cacheFor) return hit.json;
+    if (hit != null && DateTime.now().difference(hit.at) < ttl) return hit.json;
 
     final running = _inflight[key];
     if (running != null) return running;
 
     final future = _request('GET', path, params: params).then((json) {
+      if (_cache.length > 80) _cache.clear();
       _cache[key] = (at: DateTime.now(), json: json);
       return json;
     }).whenComplete(() => _inflight.remove(key));

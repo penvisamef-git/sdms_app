@@ -55,7 +55,6 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
   @override
   void initState() {
     super.initState();
-    _loadOptions();
     _load();
   }
 
@@ -73,18 +72,32 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
     }
   }
 
+  bool _optionsLoading = false;
+  bool _optionsLoaded = false;
+
+  /// Org tree / user list / flows are big and only needed to pick receivers: load them only when this
+  /// user can forward or send (not for every document that is just opened to read).
+  void _ensureOptions() {
+    if (_optionsLoaded || _optionsLoading) return;
+    if (!(_canAct || (_isOwner && !_alreadySent))) return;
+    _loadOptions();
+  }
+
   Future<void> _loadOptions() async {
+    _optionsLoading = true;
     final api = ref.read(apiProvider);
     final r = await Future.wait([
       _safe(api.unitTree()),
       _safe(api.allUsers()),
       _safe(api.statusOfProcess.all()),
     ]);
+    _optionsLoading = false;
     if (!mounted) return;
     setState(() {
       _tree = r[0];
       _users = r[1];
       _flows = r[2];
+      _optionsLoaded = r[0].isNotEmpty || r[1].isNotEmpty;
     });
   }
 
@@ -95,16 +108,19 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
       _error = '';
     });
     try {
-      final res = await api.document(widget.id);
-      Json? track;
-      try {
-        track = asObj((await api.documentTracking(widget.id))['data']);
-      } catch (_) {}
+      // both requests at the same time (they used to run one after the other)
+      final results = await Future.wait<Json?>([
+        api.document(widget.id),
+        api.documentTracking(widget.id).then<Json?>((r) => r).catchError((_) => null),
+      ]);
+      final res = results[0] ?? <String, dynamic>{};
+      final trackRes = results[1];
       if (!mounted) return;
       setState(() {
         _doc = asObj(res['data']);
-        _tracking = track;
+        _tracking = trackRes == null ? null : asObj(trackRes['data']);
       });
+      _ensureOptions();
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {

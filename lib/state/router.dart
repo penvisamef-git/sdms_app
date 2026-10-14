@@ -7,6 +7,7 @@ import '../core/permission.dart';
 import '../features/account/account_page.dart';
 import '../features/admin/admin_page.dart';
 import '../features/admin/master_list_page.dart';
+import '../features/admin/org_tree_page.dart';
 import '../features/admin/user_list_page.dart';
 import '../features/auth/login_page.dart';
 import '../features/documents/doc_form_page.dart';
@@ -93,6 +94,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/admin/users',
         parentNavigatorKey: _rootKey,
         builder: (_, __) => const UserListPage(),
+      ),
+      GoRoute(
+        path: '/admin/tree/:key',
+        parentNavigatorKey: _rootKey,
+        builder: (_, state) => OrgTreePage(
+          masterKey: state.pathParameters['key']!,
+          title: state.extra is String ? state.extra as String : '',
+        ),
       ),
       GoRoute(
         path: '/admin/master/:key',

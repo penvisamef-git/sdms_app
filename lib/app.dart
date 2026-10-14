@@ -13,17 +13,36 @@ class SdmsApp extends ConsumerStatefulWidget {
   ConsumerState<SdmsApp> createState() => _SdmsAppState();
 }
 
-class _SdmsAppState extends ConsumerState<SdmsApp> {
+class _SdmsAppState extends ConsumerState<SdmsApp> with WidgetsBindingObserver {
+  DateTime _warmAt = DateTime.fromMillisecondsSinceEpoch(0);
+
   @override
   void initState() {
     super.initState();
     PushService.instance.pending.addListener(_openPending);
+    WidgetsBinding.instance.addObserver(this);
+    _warm();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     PushService.instance.pending.removeListener(_openPending);
     super.dispose();
+  }
+
+  /// Wake the (serverless) API while the user is still looking at the splash / login screen.
+  void _warm() {
+    _warmAt = DateTime.now();
+    ref.read(apiProvider).warmUp();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // back to the app after a pause: the server may have gone to sleep
+    if (state == AppLifecycleState.resumed && DateTime.now().difference(_warmAt) > const Duration(minutes: 3)) {
+      _warm();
+    }
   }
 
   /// A notification was tapped: open its document as soon as the user is signed in.

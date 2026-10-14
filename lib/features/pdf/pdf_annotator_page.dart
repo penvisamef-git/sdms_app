@@ -1,8 +1,9 @@
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import '../../core/json.dart';
@@ -13,6 +14,7 @@ import 'annotation_painter.dart';
 import 'annotations.dart';
 import 'pdf_export.dart';
 import 'signature_pad.dart';
+import 'signature_store.dart';
 
 enum _Tool { hand, text, pen }
 
@@ -28,7 +30,7 @@ const _fontSizes = [10, 12, 14, 16, 18, 20, 24, 28, 32, 40];
 const _penWidths = [1, 2, 3, 5, 8];
 const _defaultTextW = 0.35;
 const _zoomMin = 0.6;
-const _zoomMax = 2.5;
+const _zoomMax = 3.0;
 const _historyMax = 50;
 const _gap = 12.0;
 
@@ -84,9 +86,22 @@ class _PdfAnnotatorPageState extends State<PdfAnnotatorPage> {
   double _viewH = 600;
 
   final _vScroll = ScrollController();
+  final _hScroll = ScrollController();
   final Map<String, TextEditingController> _ctrls = {};
   _LiveStroke? _live;
+  PointerDeviceKind? _liveKind;
   final _liveTick = ValueNotifier<int>(0);
+
+  // two-finger pinch: the view is scaled (cheap) while the fingers move, the pages are re-drawn once at the end
+  final Map<int, Offset> _fingers = {};
+  bool _pinching = false;
+  double _pinchStartDist = 1;
+  double _pinchBaseZoom = 1;
+  Offset _pinchLastFocal = Offset.zero;
+  final _pinchScale = ValueNotifier<double>(1);
+  final _pinchOrigin = ValueNotifier<Offset>(Offset.zero);
+
+  SignatureResult? _savedSig;
 
   bool _saving = false;
   String _savingText = '';
@@ -95,13 +110,19 @@ class _PdfAnnotatorPageState extends State<PdfAnnotatorPage> {
   void initState() {
     super.initState();
     _download();
+    SignatureStore.load().then((r) {
+      if (mounted) setState(() => _savedSig = r);
+    });
   }
 
   @override
   void dispose() {
     _doc?.dispose();
     _vScroll.dispose();
+    _hScroll.dispose();
     _liveTick.dispose();
+    _pinchScale.dispose();
+    _pinchOrigin.dispose();
     for (final c in _ctrls.values) {
       c.dispose();
     }
@@ -266,6 +287,147 @@ class _PdfAnnotatorPageState extends State<PdfAnnotatorPage> {
     return (1, 0);
   }
 
+  Ann? _byId(String id) {
+    for (final a in _anns) {
+      if (a.id == id) return a;
+    }
+    return null;
+  }
+
+  /// Move by a fraction of the page. Always starts from the CURRENT annotation, so several pointer
+  /// events in one frame (stylus) are not lost.
+  void _nudge(String id, double dx, double dy) {
+    final cur = _byId(id);
+    if (cur == null) return;
+    final o = originOf(cur);
+    _replace(cur.moved(cur.page, o.dx + dx, o.dy + dy));
+  }
+
+  // ------------------------------------------------------------------ zoom (pinch, two-finger pan, buttons)
+  /// Scroll position -> "page units" (page number - 1 + fraction of that page's height), at page width [pageW].
+  double _yToUnits(double y, double pageW) {
+    var top = _gap;
+    for (var n = 1; n <= _pageSizes.length; n++) {
+      final h = _pageHeight(n, pageW);
+      if (y < top + h + _gap || n == _pageSizes.length) return (n - 1) + (y - top) / h;
+      top += h + _gap;
+    }
+    return 0;
+  }
+
+  double _unitsToY(double u, double pageW) {
+    final n = u.floor().clamp(0, _pageSizes.length - 1);
+    var top = _gap;
+    for (var i = 1; i <= n; i++) {
+      top += _pageHeight(i, pageW) + _gap;
+    }
+    return top + (u - n) * _pageHeight(n + 1, pageW);
+  }
+
+  double _contentW(double pageW) => math.max(_viewW, pageW + 24);
+
+  double _pageLeft(double pageW) => 12 + (_contentW(pageW) - 24 - pageW) / 2;
+
+  /// Change the zoom keeping the point under [focal] (screen position inside the viewer) where it is.
+  void _applyZoom(double target, Offset focal) {
+    final z = clampD(target, _zoomMin, _zoomMax);
+    if ((z - _zoom).abs() < 0.002) {
+      if (_pinching) setState(() => _pinching = false);
+      return;
+    }
+    final oldW = _pageWidth(_viewW);
+    final newW = math.max(120.0, (_viewW - 24) * z);
+    final oldV = _vScroll.hasClients ? _vScroll.offset : 0.0;
+    final oldH = _hScroll.hasClients ? _hScroll.offset : 0.0;
+
+    final u = _yToUnits(oldV + focal.dy, oldW);
+    final newV = math.max(0.0, _unitsToY(u, newW) - focal.dy);
+    final frac = (oldH + focal.dx - _pageLeft(oldW)) / oldW;
+    final newH = clampD(_pageLeft(newW) + frac * newW - focal.dx, 0, math.max(0, _contentW(newW) - _viewW));
+
+    // set the new offsets BEFORE the pages are laid out at the new size: no jump on screen
+    if (_vScroll.hasClients) _vScroll.position.correctBy(newV - _vScroll.offset);
+    if (_hScroll.hasClients) _hScroll.position.correctBy(newH - _hScroll.offset);
+    setState(() {
+      _zoom = z;
+      _pinching = false;
+    });
+    if (!_hScroll.hasClients && newH > 0) {
+      // the sideways scroller only exists once the page is wider than the screen
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _hScroll.hasClients) _hScroll.jumpTo(math.min(newH, _hScroll.position.maxScrollExtent));
+      });
+    }
+  }
+
+  int? _pairA;
+  int? _pairB;
+
+  bool _isFinger(PointerEvent e) => e.kind != PointerDeviceKind.stylus && e.kind != PointerDeviceKind.invertedStylus;
+
+  void _fingerDown(PointerDownEvent e) {
+    if (!_isFinger(e) || _saving) return;
+    // a stylus stroke is in progress: a resting palm must not start a pinch
+    if (_live != null && _liveKind != null && _liveKind != PointerDeviceKind.touch) return;
+    _fingers[e.pointer] = e.localPosition;
+    if (_fingers.length == 2 && !_pinching) _startPinch();
+  }
+
+  void _startPinch() {
+    final ids = _fingers.keys.take(2).toList();
+    _pairA = ids[0];
+    _pairB = ids[1];
+    final a = _fingers[ids[0]]!;
+    final b = _fingers[ids[1]]!;
+    _pinchStartDist = math.max(24.0, (a - b).distance);
+    _pinchBaseZoom = _zoom;
+    _pinchLastFocal = (a + b) / 2;
+    _pinchOrigin.value = _pinchLastFocal;
+    _pinchScale.value = 1;
+    if (_live != null) {
+      _live = null; // drop the half-drawn stroke: this is a pinch, not a line
+      _liveTick.value++;
+    }
+    setState(() => _pinching = true);
+  }
+
+  void _fingerMove(PointerMoveEvent e) {
+    if (!_fingers.containsKey(e.pointer)) return;
+    _fingers[e.pointer] = e.localPosition;
+    if (!_pinching) return;
+    final a = _fingers[_pairA];
+    final b = _fingers[_pairB];
+    if (a == null || b == null) return;
+    final focal = (a + b) / 2;
+    final d = focal - _pinchLastFocal;
+    _pinchLastFocal = focal;
+    // two fingers also scroll: the content follows the middle point of the fingers
+    if (_vScroll.hasClients) {
+      final p = _vScroll.position;
+      p.jumpTo(clampD(p.pixels - d.dy, p.minScrollExtent, p.maxScrollExtent));
+    }
+    if (_hScroll.hasClients) {
+      final p = _hScroll.position;
+      p.jumpTo(clampD(p.pixels - d.dx, p.minScrollExtent, p.maxScrollExtent));
+    }
+    final raw = (a - b).distance / _pinchStartDist;
+    _pinchScale.value = clampD(raw, _zoomMin / _pinchBaseZoom, _zoomMax / _pinchBaseZoom);
+    _pinchOrigin.value = focal;
+  }
+
+  void _fingerUp(PointerEvent e) {
+    final inPair = e.pointer == _pairA || e.pointer == _pairB;
+    _fingers.remove(e.pointer);
+    if (_pinching && inPair) {
+      final sc = _pinchScale.value;
+      final focal = _pinchOrigin.value;
+      _pairA = null;
+      _pairB = null;
+      _pinchScale.value = 1;
+      _applyZoom(_pinchBaseZoom * sc, focal);
+    }
+  }
+
   // ------------------------------------------------------------------ actions
   void _addText(int page, Offset local, Size pageSize) {
     _pruneBlank();
@@ -290,10 +452,38 @@ class _PdfAnnotatorPageState extends State<PdfAnnotatorPage> {
     });
   }
 
-  Future<void> _addSignature() async {
+  /// Tap: place the signature kept on the phone at once. No saved one yet (or [fresh]): draw it first.
+  Future<void> _addSignature({bool fresh = false}) async {
     FocusManager.instance.primaryFocus?.unfocus();
-    final r = await showSignaturePad(context, initialColor: _color);
-    if (r == null || !mounted) return;
+    var r = fresh ? null : _savedSig;
+    if (r == null) {
+      r = await showSignaturePad(context, initialColor: _color);
+      if (r == null || !mounted) return;
+      if (r.remember) {
+        SignatureStore.save(r);
+        setState(() => _savedSig = r);
+      }
+    } else {
+      HapticFeedback.selectionClick();
+    }
+    _placeSignature(r);
+  }
+
+  Future<void> _forgetSignature() async {
+    if (_savedSig == null) return;
+    final ok = await confirmDialog(
+      context,
+      title: 'លុបហត្ថលេខាដែលបានចងចាំ?',
+      message: 'លើកក្រោយអ្នកនឹងត្រូវគូរហត្ថលេខាម្តងទៀត។',
+      confirmText: 'លុប',
+      danger: true,
+    );
+    if (!ok || !mounted) return;
+    await SignatureStore.clear();
+    if (mounted) setState(() => _savedSig = null);
+  }
+
+  void _placeSignature(SignatureResult r) {
     _pruneBlank();
 
     final (page, yCenter) = _centerPage(_viewW, _viewH);
@@ -389,12 +579,12 @@ class _PdfAnnotatorPageState extends State<PdfAnnotatorPage> {
             ),
             IconButton(
               tooltip: 'បង្រួម',
-              onPressed: _zoom <= _zoomMin ? null : () => setState(() => _zoom = math.max(_zoomMin, _zoom - 0.25)),
+              onPressed: _zoom <= _zoomMin || _saving ? null : () => _applyZoom(_zoom - 0.25, Offset(_viewW / 2, _viewH / 2)),
               icon: const Icon(Icons.zoom_out),
             ),
             IconButton(
               tooltip: 'ពង្រីក',
-              onPressed: _zoom >= _zoomMax ? null : () => setState(() => _zoom = math.min(_zoomMax, _zoom + 0.25)),
+              onPressed: _zoom >= _zoomMax || _saving ? null : () => _applyZoom(_zoom + 0.25, Offset(_viewW / 2, _viewH / 2)),
               icon: const Icon(Icons.zoom_in),
             ),
             Padding(
@@ -437,7 +627,7 @@ class _PdfAnnotatorPageState extends State<PdfAnnotatorPage> {
                   _viewW = box.maxWidth;
                   _viewH = box.maxHeight;
                   final pageW = _pageWidth(box.maxWidth);
-                  final locked = _lockScroll || _tool == _Tool.pen || _saving;
+                  final locked = _lockScroll || _tool == _Tool.pen || _saving || _pinching;
                   final physics = locked ? const NeverScrollableScrollPhysics() : const ClampingScrollPhysics();
                   final contentW = math.max(box.maxWidth, pageW + 24);
 
@@ -456,12 +646,36 @@ class _PdfAnnotatorPageState extends State<PdfAnnotatorPage> {
                   );
                   if (contentW > box.maxWidth) {
                     list = SingleChildScrollView(
+                      controller: _hScroll,
                       scrollDirection: Axis.horizontal,
                       physics: physics,
                       child: SizedBox(width: contentW, height: box.maxHeight, child: list),
                     );
                   }
-                  return Container(color: const Color(0xFFE3E8E7), child: list);
+                  // the view is only scaled while the fingers move (smooth); the pages are redrawn once at the end
+                  final scaled = AnimatedBuilder(
+                    animation: Listenable.merge([_pinchScale, _pinchOrigin]),
+                    child: list,
+                    builder: (_, child) {
+                      final sc = _pinchScale.value;
+                      if (sc == 1) return child!;
+                      final o = _pinchOrigin.value;
+                      return Transform(
+                        transform: Matrix4.translationValues(o.dx, o.dy, 0)
+                          ..multiply(Matrix4.diagonal3Values(sc, sc, 1))
+                          ..multiply(Matrix4.translationValues(-o.dx, -o.dy, 0)),
+                        child: child,
+                      );
+                    },
+                  );
+                  return Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: _fingerDown,
+                    onPointerMove: _fingerMove,
+                    onPointerUp: _fingerUp,
+                    onPointerCancel: _fingerUp,
+                    child: Container(color: const Color(0xFFE3E8E7), child: ClipRect(child: scaled)),
+                  );
                 },
               ),
             ),
@@ -552,13 +766,20 @@ class _PdfAnnotatorPageState extends State<PdfAnnotatorPage> {
         return Listener(
           behavior: HitTestBehavior.opaque,
           onPointerDown: (e) {
+            // another finger is already down: this is a pinch / two-finger scroll, not a line
+            if (_isFinger(e) && _fingers.isNotEmpty) return;
             _live = _LiveStroke(n, [_frac(e.localPosition, size)]);
+            _liveKind = e.kind;
             _liveTick.value++;
           },
           onPointerMove: (e) {
             final l = _live;
             if (l == null || l.page != n) return;
-            l.points.add(_frac(e.localPosition, size));
+            final p = _frac(e.localPosition, size);
+            // skip points closer than ~0.3 px: same line, far fewer points to draw and save
+            final last = l.points.last;
+            if ((p.dx - last.dx).abs() * size.width < 0.3 && (p.dy - last.dy).abs() * size.height < 0.3) return;
+            l.points.add(p);
             _liveTick.value++;
           },
           onPointerUp: (e) => _endStroke(n),
@@ -581,6 +802,7 @@ class _PdfAnnotatorPageState extends State<PdfAnnotatorPage> {
   void _endStroke(int n) {
     final l = _live;
     _live = null;
+    _liveKind = null;
     _liveTick.value++;
     if (l == null || l.points.isEmpty) return;
     _commit([
@@ -626,14 +848,17 @@ class _PdfAnnotatorPageState extends State<PdfAnnotatorPage> {
             hintStyle: annotationTextStyle(a, page.width).copyWith(color: AppColors.other),
           ),
           onTap: () => _select(a.id),
-          onChanged: (v) => _replace(a.copyWith(text: v)),
+          onChanged: (v) {
+            final cur = _byId(a.id);
+            if (cur is TextAnn) _replace(cur.copyWith(text: v));
+          },
         ),
       ),
     );
 
     final bar = _handleBar(
       key: ValueKey('bar-${a.id}'),
-      onGripMove: (d) => _replace(a.moved(a.page, a.x + d.dx / page.width, a.y + d.dy / page.height)),
+      onGripMove: (d) => _nudge(a.id, d.dx / page.width, d.dy / page.height),
       onGripStart: _beginDrag,
       onGripEnd: _endDrag,
       onDelete: () => _remove(a.id),
@@ -664,7 +889,12 @@ class _PdfAnnotatorPageState extends State<PdfAnnotatorPage> {
               child: Listener(
                 behavior: HitTestBehavior.opaque,
                 onPointerDown: (_) => _beginDrag(),
-                onPointerMove: (e) => _replace(a.copyWith(w: clampD(a.w + e.delta.dx / page.width, 0.1, 1 - a.x))),
+                onPointerMove: (e) {
+                  final cur = _byId(a.id);
+                  if (cur is TextAnn) {
+                    _replace(cur.copyWith(w: clampD(cur.w + e.delta.dx / page.width, 0.1, 1 - cur.x)));
+                  }
+                },
                 onPointerUp: (_) => _endDrag(),
                 onPointerCancel: (_) => _endDrag(),
                 child: const Center(child: Icon(Icons.drag_indicator, size: 18, color: AppColors.primary)),
@@ -745,9 +975,10 @@ class _PdfAnnotatorPageState extends State<PdfAnnotatorPage> {
       key: ValueKey('bar-${a.id}'),
       onGripStart: _beginDrag,
       onGripEnd: _endDrag,
-      onGripMove: (d) => _replace(a.moved(a.page, b.left + d.dx / page.width, b.top + d.dy / page.height)),
+      onGripMove: (d) => _nudge(a.id, d.dx / page.width, d.dy / page.height),
       onDelete: () => _remove(a.id),
     );
+    final dragBody = selected && _tool == _Tool.hand;
 
     return Positioned(
       left: left,
@@ -764,13 +995,21 @@ class _PdfAnnotatorPageState extends State<PdfAnnotatorPage> {
             child: Stack(
               children: [
                 Positioned.fill(
-                  child: GestureDetector(
+                  // a selected signature can be dragged by itself (no need to find the move button)
+                  child: Listener(
                     behavior: HitTestBehavior.translucent,
-                    onTap: _tool == _Tool.hand ? () => _select(a.id) : null,
-                    child: IgnorePointer(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: selected ? AppColors.primary : Colors.transparent, width: 1.2),
+                    onPointerDown: dragBody ? (_) => _beginDrag() : null,
+                    onPointerMove: dragBody ? (e) => _nudge(a.id, e.delta.dx / page.width, e.delta.dy / page.height) : null,
+                    onPointerUp: dragBody ? (_) => _endDrag() : null,
+                    onPointerCancel: dragBody ? (_) => _endDrag() : null,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTap: _tool == _Tool.hand ? () => _select(a.id) : null,
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: selected ? AppColors.primary : Colors.transparent, width: 1.2),
+                          ),
                         ),
                       ),
                     ),
@@ -784,10 +1023,13 @@ class _PdfAnnotatorPageState extends State<PdfAnnotatorPage> {
                       behavior: HitTestBehavior.opaque,
                       onPointerDown: (_) => _beginDrag(),
                       onPointerMove: (e) {
-                        final curW = b.width * page.width;
+                        final cur = _byId(a.id);
+                        if (cur is! DrawAnn) return;
+                        final cb = cur.bounds;
+                        final curW = cb.width * page.width;
                         if (curW < 4) return;
                         final factor = ((curW + e.delta.dx) / curW).clamp(0.5, 2.0);
-                        final next = a.scaled(factor, b.left, b.top);
+                        final next = cur.scaled(factor, cb.left, cb.top);
                         final nb = next.bounds; // keep it inside the page and not tiny
                         if (nb.right > 1 || nb.bottom > 1 || nb.width * page.width < 24) return;
                         _replace(next);
@@ -817,15 +1059,18 @@ class _PdfAnnotatorPageState extends State<PdfAnnotatorPage> {
     final selText = _selected is TextAnn;
     final hint = switch (_tool) {
       _Tool.text => 'ចុចលើទំព័រដើម្បីដាក់អក្សរ',
-      _Tool.pen => 'គូរលើទំព័រ (ការរមូលទំព័រត្រូវបានបិទ)',
-      _Tool.hand => _selected != null ? 'អូសប៊ូតុងដើម្បីផ្លាស់ទី ឬប្តូរទំហំ' : '',
+      _Tool.pen => 'គូរដោយម្រាមមួយ · ម្រាមពីរដើម្បីពង្រីក ឬរមូល',
+      _Tool.hand => _selected != null
+          ? 'អូសដើម្បីផ្លាស់ទី · ចុចរង្វង់ជ្រុងដើម្បីប្តូរទំហំ'
+          : (_savedSig != null ? 'ចុច "ហត្ថលេខា" ដើម្បីដាក់ភ្លាមៗ · ចុចយូរដើម្បីលុបហត្ថលេខាដែលបានចងចាំ' : 'ប្រើម្រាមពីរដើម្បីពង្រីក ឬរមូល'),
     };
 
-    Widget toolButton(IconData icon, String label, bool on, VoidCallback onTap) {
+    Widget toolButton(IconData icon, String label, bool on, VoidCallback onTap, {VoidCallback? onLongPress}) {
       return Expanded(
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
           onTap: _saving ? null : onTap,
+          onLongPress: _saving ? null : onLongPress,
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
@@ -871,7 +1116,8 @@ class _PdfAnnotatorPageState extends State<PdfAnnotatorPage> {
                   toolButton(Icons.pan_tool_alt_outlined, 'ជ្រើស', _tool == _Tool.hand, () => _setTool(_Tool.hand)),
                   toolButton(Icons.text_fields_rounded, 'អក្សរ', _tool == _Tool.text, () => _setTool(_Tool.text)),
                   toolButton(Icons.edit_outlined, 'ប៊ិច', _tool == _Tool.pen, () => _setTool(_Tool.pen)),
-                  toolButton(Icons.draw_outlined, 'ហត្ថលេខា', false, _addSignature),
+                  toolButton(Icons.draw_outlined, 'ហត្ថលេខា', false, _addSignature, onLongPress: _savedSig == null ? null : _forgetSignature),
+                  if (_savedSig != null) toolButton(Icons.gesture, 'គូរថ្មី', false, () => _addSignature(fresh: true)),
                 ],
               ),
               const SizedBox(height: 4),
@@ -925,7 +1171,13 @@ class _PdfAnnotatorPageState extends State<PdfAnnotatorPage> {
                       label: Text('$_fontPt'),
                     ),
                   const SizedBox(width: 8),
-                  Text('${(_zoom * 100).round()}%', style: t.bodySmall?.copyWith(color: AppColors.muted)),
+                  ValueListenableBuilder<double>(
+                    valueListenable: _pinchScale,
+                    builder: (_, sc, __) => Text(
+                      '${(_zoom * sc * 100).round()}%',
+                      style: t.bodySmall?.copyWith(color: AppColors.muted),
+                    ),
+                  ),
                 ],
               ),
             ],

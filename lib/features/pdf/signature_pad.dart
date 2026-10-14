@@ -8,12 +8,21 @@ const _penSizes = [2.0, 3.0, 5.0];
 
 /// A signature drawn by the user. Strokes are in "signature widths": x from 0 to 1, y from 0 to [ratio].
 class SignatureResult {
-  const SignatureResult({required this.strokes, required this.width, required this.color, required this.ratio});
+  const SignatureResult({
+    required this.strokes,
+    required this.width,
+    required this.color,
+    required this.ratio,
+    this.remember = false,
+  });
 
   final List<List<Offset>> strokes;
   final double width;
   final Color color;
   final double ratio;
+
+  /// The user asked to keep it for the next documents.
+  final bool remember;
 }
 
 class _Stroke {
@@ -50,6 +59,7 @@ class _SignaturePadState extends State<_SignaturePad> {
   _Stroke? _current;
   late Color _color = padColors.contains(widget.initialColor) ? widget.initialColor! : padColors[1];
   double _pen = 3;
+  bool _remember = true;
   Size _canvas = Size.zero;
 
   void _down(PointerDownEvent e) {
@@ -100,6 +110,7 @@ class _SignaturePadState extends State<_SignaturePad> {
         width: _pen / w,
         color: lastColor,
         ratio: h / w,
+        remember: _remember,
       ),
     );
   }
@@ -187,7 +198,13 @@ class _SignaturePadState extends State<_SignaturePad> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            value: _remember,
+            onChanged: (v) => setState(() => _remember = v),
+            title: const Text('ចងចាំហត្ថលេខានេះសម្រាប់ឯកសារក្រោយៗ'),
+          ),
           Row(
             children: [
               Expanded(

@@ -54,6 +54,14 @@ class Api {
   }
 
   // ---------------- User ----------------
+  /// Wakes the server (and its database connection) so the first real call is not a cold start.
+  /// Never throws; no sign-in needed.
+  Future<void> warmUp() async {
+    try {
+      await client.get('/health');
+    } catch (_) {}
+  }
+
   // ---------------- Push notifications ----------------
   Future<void> pushRegister(String token, String platform) async {
     await client.post('/push/register', body: {'token': token, 'platform': platform});
@@ -85,6 +93,10 @@ class Api {
   Future<Json> myOffice() => client.get('/home/my-office');
 
   // ---------------- Org tree ----------------
+  /// Organisation tree with the users of every office (key: unit | general-directorate | department).
+  Future<Json> orgTree(String key) =>
+      client.get('/master-data/$key-tree', params: {'include_users': true});
+
   Future<Json> unitTree({Map<String, dynamic>? params}) =>
       client.get('/master-data/unit-tree', params: params);
 
