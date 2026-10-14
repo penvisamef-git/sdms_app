@@ -42,3 +42,9 @@ android {
 flutter {
     source = "../.."
 }
+
+// Push notifications: the Firebase plugin is applied only when the config file is present,
+// so the app still builds and runs without Firebase.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}

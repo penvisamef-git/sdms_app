@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/json.dart';
 import '../data/api_client.dart';
 import '../data/auth_store.dart';
+import '../data/push_service.dart';
 import '../data/services.dart';
 
 class AuthState {
@@ -39,7 +40,10 @@ class AuthController extends Notifier<AuthState> {
   Future<void> _load() async {
     final saved = await ref.read(authStoreProvider).read();
     state = AuthState(ready: true, user: saved);
-    if (saved != null) refreshProfile();
+    if (saved != null) {
+      refreshProfile();
+      _registerPush();
+    }
   }
 
   Future<void> login(String email, String password) async {
@@ -52,6 +56,11 @@ class AuthController extends Notifier<AuthState> {
     await ref.read(authStoreProvider).save(data);
     ref.read(apiClientProvider).clearCache();
     state = AuthState(ready: true, user: data);
+    _registerPush();
+  }
+
+  void _registerPush() {
+    PushService.instance.register(ref.read(apiProvider));
   }
 
   /// Keep the saved login in step with the server (e.g. an admin changed my role).
@@ -80,6 +89,7 @@ class AuthController extends Notifier<AuthState> {
   }
 
   Future<void> logout() async {
+    await PushService.instance.unregister(ref.read(apiProvider));
     await ref.read(apiProvider).logout();
     await _clear();
   }
@@ -90,6 +100,7 @@ class AuthController extends Notifier<AuthState> {
   }
 
   Future<void> _clear() async {
+    PushService.instance.dropToken();
     await ref.read(authStoreProvider).clear();
     ref.read(apiClientProvider).clearCache();
     state = const AuthState(ready: true);

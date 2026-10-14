@@ -54,6 +54,15 @@ class Api {
   }
 
   // ---------------- User ----------------
+  // ---------------- Push notifications ----------------
+  Future<void> pushRegister(String token, String platform) async {
+    await client.post('/push/register', body: {'token': token, 'platform': platform});
+  }
+
+  Future<void> pushUnregister(String token) async {
+    await client.post('/push/unregister', body: {'token': token});
+  }
+
   Future<Json> profile() => client.get('/users-app/profile');
   Future<Json> allUsers() => users.all();
 
