@@ -10,6 +10,7 @@ import '../../core/theme.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/skeleton.dart';
+import '../../widgets/tab_header.dart';
 import '../../widgets/select_sheet.dart';
 import 'doc_helpers.dart';
 
@@ -151,21 +152,8 @@ class _DocListPageState extends ConsumerState<DocListPage> {
   @override
   Widget build(BuildContext context) {
     final rows = _visible;
-    final t = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_isIn ? 'ឯកសារចូល' : 'ឯកសារចេញ'),
-        actions: [
-          if (_total > 0)
-            Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Center(
-                child: Text('$_total', style: t.titleSmall?.copyWith(color: AppColors.muted)),
-              ),
-            ),
-        ],
-      ),
       floatingActionButton: _isIn
           ? null
           : FloatingActionButton.extended(
@@ -175,9 +163,10 @@ class _DocListPageState extends ConsumerState<DocListPage> {
             ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: Row(
+          TabHeader(
+            title: _isIn ? 'ឯកសារចូល' : 'ឯកសារចេញ',
+            subtitle: _total > 0 ? '$_total ឯកសារ' : null,
+            bottom: Row(
               children: [
                 Expanded(
                   child: TextField(

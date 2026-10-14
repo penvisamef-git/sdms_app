@@ -512,7 +512,6 @@ class _FormSheetState extends ConsumerState<_FormSheet> {
           options: opts,
           value: s(_values[f.key]),
           enabled: !_saving,
-          hint: f.hint ?? '-- ជ្រើសរើស --',
           onChanged: (v) => setState(() => _values[f.key] = v),
         );
       case FieldType.checkbox:

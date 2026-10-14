@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../core/json.dart';
-import '../core/theme.dart';
 import 'common.dart';
 import 'org_tree_picker.dart';
 import 'select_sheet.dart';
@@ -85,12 +84,7 @@ class ReceiverCard extends StatelessWidget {
                 suffixIcon: Icon(Icons.account_tree_outlined),
               ),
               isEmpty: office == null,
-              child: Text(
-                office == null ? '-- ជ្រើសរើសអង្គភាព --' : office!.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: office == null ? const TextStyle(color: AppColors.muted) : null,
-              ),
+              child: Text(office?.name ?? '', maxLines: 2, overflow: TextOverflow.ellipsis),
             ),
           ),
           const SizedBox(height: 14),
@@ -100,7 +94,6 @@ class ReceiverCard extends StatelessWidget {
             value: userId,
             enabled: !disabled,
             onChanged: onUserChanged,
-            hint: '-- ជ្រើសរើសអ្នកប្រើប្រាស់ --',
           ),
           if (footer != null) ...[const SizedBox(height: 14), footer!],
         ],

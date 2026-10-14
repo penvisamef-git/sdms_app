@@ -112,7 +112,6 @@ class SelectField extends StatelessWidget {
     required this.options,
     required this.value,
     required this.onChanged,
-    this.hint = '-- ជ្រើសរើស --',
     this.enabled = true,
     this.allowClear = true,
   });
@@ -121,7 +120,6 @@ class SelectField extends StatelessWidget {
   final List<Option> options;
   final String value;
   final ValueChanged<String> onChanged;
-  final String hint;
   final bool enabled;
   final bool allowClear;
 
@@ -150,13 +148,9 @@ class SelectField extends StatelessWidget {
           enabled: enabled,
           suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded),
         ),
+        // empty: only the label shows (like a text field); chosen: the label floats and the value shows
         isEmpty: text.isEmpty,
-        child: Text(
-          text.isEmpty ? hint : text,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: text.isEmpty ? const TextStyle(color: AppColors.muted) : null,
-        ),
+        child: Text(text, maxLines: 2, overflow: TextOverflow.ellipsis),
       ),
     );
   }

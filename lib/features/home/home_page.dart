@@ -10,6 +10,7 @@ import '../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/skeleton.dart';
 import '../../widgets/select_sheet.dart';
+import '../../widgets/tab_header.dart';
 import '../documents/doc_helpers.dart';
 import 'home_charts.dart';
 
@@ -101,7 +102,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     final docs = asObj(data?['documents']);
     final transfers = asObj(data?['transfers']);
     final me = asObj(data?['me']);
-    final t = Theme.of(context).textTheme;
 
     final fullName = personName(me['user']).isNotEmpty ? personName(me['user']) : personName(user);
     final chain = [
@@ -110,119 +110,102 @@ class _HomePageState extends ConsumerState<HomePage> {
       s(asObj(me['department'])['name']),
       s(asObj(me['office'])['name']),
     ].where((e) => e.isNotEmpty).join(' › ');
+    final isNow = _month == currentMonthValue();
 
-    return RefreshIndicator(
-      onRefresh: () => _load(force: true),
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        children: [
-          // ----- greeting -----
-          Text(fullName.isEmpty ? 'ទិន្នន័យសង្ខេប' : 'សួស្តី $fullName',
-              style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 2),
-          Text(chain.isEmpty ? 'ទិន្នន័យសង្ខេបនៃឯកសាររបស់អ្នក' : chain,
-              style: t.bodySmall?.copyWith(color: AppColors.muted)),
-          const SizedBox(height: 14),
-
-          // ----- filters -----
-          Row(
+    return Column(
+      children: [
+        // ----- fixed header: greeting + month; only the part below scrolls -----
+        TabHeader(
+          title: fullName.isEmpty ? 'ទិន្នន័យសង្ខេប' : 'សួស្តី $fullName',
+          subtitle: chain.isEmpty ? 'ទិន្នន័យសង្ខេបនៃឯកសាររបស់អ្នក' : chain,
+          actions: [
+            if (!isNow)
+              IconButton(
+                tooltip: 'ខែនេះ',
+                onPressed: () => _setMonth(currentMonthValue()),
+                icon: const Icon(Icons.today_rounded),
+              ),
+          ],
+          bottom: Row(
             children: [
               IconButton.filledTonal(
+                tooltip: 'ខែមុន',
                 onPressed: () => _setMonth(shiftMonth(_month, -1)),
-                icon: const Icon(Icons.chevron_left),
+                icon: const Icon(Icons.chevron_left_rounded),
               ),
+              const SizedBox(width: 8),
               Expanded(
-                child: TextButton(
+                child: FilledButton.tonalIcon(
+                  style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
                   onPressed: _pickMonth,
-                  child: Text(monthLabel(_month), style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-                ),
-              ),
-              IconButton.filledTonal(
-                onPressed: () => _setMonth(shiftMonth(_month, 1)),
-                icon: const Icon(Icons.chevron_right),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _pickField,
-                  icon: const Icon(Icons.tune, size: 18),
-                  label: Text(
-                    'រាប់តាម: ${_dateFields.firstWhere((o) => o.value == _dateField).label}',
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  icon: const Icon(Icons.calendar_month_rounded, size: 20),
+                  label: Text(monthLabel(_month), style: const TextStyle(fontWeight: FontWeight.w800)),
                 ),
               ),
               const SizedBox(width: 8),
-              OutlinedButton(
-                onPressed: _month == currentMonthValue() ? null : () => _setMonth(currentMonthValue()),
-                child: const Text('ខែនេះ'),
+              IconButton.filledTonal(
+                tooltip: 'ខែបន្ទាប់',
+                onPressed: () => _setMonth(shiftMonth(_month, 1)),
+                icon: const Icon(Icons.chevron_right_rounded),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
+                tooltip: 'រាប់តាម: ${_dateFields.firstWhere((o) => o.value == _dateField).label}',
+                onPressed: _pickField,
+                icon: Badge(
+                  isLabelVisible: _dateField != 'created_date',
+                  smallSize: 8,
+                  child: const Icon(Icons.tune_rounded),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+        ),
 
-          if (_error.isNotEmpty && data == null)
-            ErrorState(_error, onRetry: () => _load(force: true))
-          else if (data == null)
-            const SkeletonHome()
-          else ...[
-            if (_error.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Text(_error, style: const TextStyle(color: AppColors.danger)),
-              ),
-            AnimatedOpacity(
-              duration: const Duration(milliseconds: 150),
-              opacity: 1,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () => _load(force: true),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+              children: [
+                if (_error.isNotEmpty && data == null)
+                  ErrorState(_error, onRetry: () => _load(force: true))
+                else if (data == null)
+                  const SkeletonHome()
+                else ...[
+                  if (_error.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(_error, style: const TextStyle(color: AppColors.danger)),
+                    ),
+
                   // ----- needs action now -----
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _Tile(
-                          hero: true,
-                          icon: Icons.move_to_inbox_rounded,
-                          label: 'រង់ចាំទទួល',
-                          value: asInt(transfers['waiting_to_receive']),
-                          sub: asInt(transfers['waiting_to_receive']) > 0 ? 'ចុចដើម្បីពិនិត្យ' : 'គ្មានឯកសារត្រូវទទួល',
-                          onTap: canIn ? () => context.go('/document/in') : null,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _Tile(
-                          icon: Icons.schedule_rounded,
-                          label: 'កំពុងកាន់',
-                          value: asInt(transfers['on_hand']),
-                          sub: 'បានទទួល មិនទាន់បញ្ជូនបន្ត',
-                          onTap: canIn ? () => context.go('/document/in') : null,
-                        ),
-                      ),
-                    ],
+                  _HeroCard(
+                    waiting: asInt(transfers['waiting_to_receive']),
+                    onHand: asInt(transfers['on_hand']),
+                    onTap: canIn ? () => context.go('/document/in') : null,
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 28),
 
                   // ----- the selected month -----
+                  _SectionTitle('សង្ខេបប្រចាំខែ', trailing: monthLabel(_month)),
                   Row(
                     children: [
                       Expanded(
                         child: _Tile(
                           icon: Icons.description_outlined,
+                          color: AppColors.primary,
                           label: 'ឯកសារសរុប',
                           value: asInt(docs['total']),
                           sub: 'ចេញ ${formatNumber(docs['out'])} · ចូល ${formatNumber(docs['in'])}',
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: _Tile(
                           icon: Icons.fiber_new_rounded,
+                          color: AppColors.info,
                           label: 'ឯកសារថ្មី',
                           value: asInt(asObj(data['new_documents'])['total']),
                           sub: 'ស្ថានភាព ថ្មី',
@@ -230,78 +213,177 @@ class _HomePageState extends ConsumerState<HomePage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
                         child: _Tile(
                           icon: Icons.send_rounded,
+                          color: AppColors.warn,
                           label: 'បានផ្ញើ',
                           value: asInt(transfers['sent_this_month']),
                           sub: 'ផ្ញើ/បញ្ជូនបន្ត',
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: _Tile(
-                          icon: Icons.undo_rounded,
-                          label: 'រុញត្រឡប់មកខ្ញុំ',
-                          value: asInt(transfers['returned_to_me_this_month']),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _Tile(
-                          icon: Icons.check_rounded,
+                          icon: Icons.check_circle_outline_rounded,
+                          color: AppColors.done,
                           label: 'បានបញ្ចប់',
                           value: asInt(transfers['done_this_month']),
+                          sub: 'បិទដំណើរការ',
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
+                  _Tile(
+                    wide: true,
+                    icon: Icons.undo_rounded,
+                    color: AppColors.danger,
+                    label: 'រុញត្រឡប់មកខ្ញុំ',
+                    value: asInt(transfers['returned_to_me_this_month']),
+                    sub: 'ឯកសារដែលត្រូវបានរុញត្រឡប់មកខ្ញុំ',
+                  ),
+                  const SizedBox(height: 28),
 
                   // ----- charts -----
+                  _SectionTitle('ស្ថិតិ'),
                   SectionCard(
+                    padding: const EdgeInsets.all(20),
                     title: 'ឯកសារតាមថ្ងៃ',
                     subtitle: '${monthLabel(_month)} · សរុប ${formatNumber(docs['total'])} ឯកសារ',
                     child: asInt(docs['total']) == 0
                         ? const EmptyState('គ្មានឯកសារក្នុងខែនេះ')
                         : DayColumns(days: asList(docs['by_day'])),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   SectionCard(
-                    title: 'ស្ថានភាពឯកសារ',
-                    subtitle: 'ចែកតាមស្ថានភាព',
-                    child: StackBar(parts: [
-                      StackPart(docStatus['new']!.label, asInt(asObj(docs['by_status'])['new']), AppColors.info),
-                      StackPart(docStatus['process']!.label, asInt(asObj(docs['by_status'])['process']), AppColors.warn),
-                      StackPart(docStatus['close']!.label, asInt(asObj(docs['by_status'])['close']), AppColors.done),
-                    ]),
+                    padding: const EdgeInsets.all(20),
+                    title: 'ការបែងចែក',
+                    subtitle: 'តាមស្ថានភាព និងប្រភពឯកសារ',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _MiniLabel('ស្ថានភាព'),
+                        StackBar(parts: [
+                          StackPart(docStatus['new']!.label, asInt(asObj(docs['by_status'])['new']), AppColors.info),
+                          StackPart(docStatus['process']!.label, asInt(asObj(docs['by_status'])['process']), AppColors.warn),
+                          StackPart(docStatus['close']!.label, asInt(asObj(docs['by_status'])['close']), AppColors.done),
+                        ]),
+                        const SizedBox(height: 24),
+                        _MiniLabel('ប្រភព'),
+                        StackBar(parts: [
+                          StackPart('ចេញ · បង្កើតដោយការិយាល័យខ្ញុំ', asInt(docs['out']), AppColors.primary),
+                          StackPart('ចូល · ទទួលបាន', asInt(docs['in']), AppColors.other),
+                        ]),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  SectionCard(
-                    title: 'ចូល និង ចេញ',
-                    subtitle: 'ប្រភពឯកសារ',
-                    child: StackBar(parts: [
-                      StackPart('ចេញ · បង្កើតដោយការិយាល័យខ្ញុំ', asInt(docs['out']), AppColors.primary),
-                      StackPart('ចូល · ទទួលបាន', asInt(docs['in']), AppColors.other),
-                    ]),
-                  ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 28),
 
                   _NewDocumentsCard(month: _month, dateField: _dateField, refreshKey: _refreshKey),
-                  const SizedBox(height: 12),
-                  SectionCard(
-                    title: 'ទីតាំងរបស់ខ្ញុំ',
-                    subtitle: 'ការិយាល័យ → អង្គភាព',
-                    child: _OfficeChain(me: me),
-                  ),
                 ],
-              ),
+              ],
             ),
-          ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// small grey heading above a group of cards
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text, {this.trailing});
+
+  final String text;
+  final String? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+      child: Row(
+        children: [
+          Expanded(child: Text(text, style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800))),
+          if (trailing != null) Text(trailing!, style: t.bodySmall?.copyWith(color: AppColors.muted)),
         ],
+      ),
+    );
+  }
+}
+
+class _MiniLabel extends StatelessWidget {
+  const _MiniLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Text(text, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: AppColors.muted, fontWeight: FontWeight.w700)),
+      );
+}
+
+/// Big green card: what needs action now (waiting to receive / on hand).
+class _HeroCard extends StatelessWidget {
+  const _HeroCard({required this.waiting, required this.onHand, this.onTap});
+
+  final int waiting;
+  final int onHand;
+  final VoidCallback? onTap;
+
+  Widget _stat(BuildContext context, IconData icon, String label, int value, String sub) {
+    final t = Theme.of(context).textTheme;
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: Colors.white70),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: t.labelLarge?.copyWith(color: Colors.white70, fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(formatNumber(value), style: t.displaySmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w800, height: 1.05)),
+          const SizedBox(height: 6),
+          Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: t.bodySmall?.copyWith(color: Colors.white70)),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      borderRadius: BorderRadius.circular(26),
+      clipBehavior: Clip.antiAlias,
+      color: Colors.transparent,
+      child: Ink(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.primaryDark, AppColors.primary]),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(22),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _stat(context, Icons.move_to_inbox_rounded, 'រង់ចាំទទួល', waiting, waiting > 0 ? 'ចុចដើម្បីពិនិត្យ' : 'គ្មានឯកសារត្រូវទទួល'),
+                Container(width: 1, height: 84, margin: const EdgeInsets.symmetric(horizontal: 18), color: Colors.white24),
+                _stat(context, Icons.schedule_rounded, 'កំពុងកាន់', onHand, 'បានទទួល មិនទាន់បញ្ជូនបន្ត'),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -310,109 +392,69 @@ class _HomePageState extends ConsumerState<HomePage> {
 class _Tile extends StatelessWidget {
   const _Tile({
     required this.icon,
+    required this.color,
     required this.label,
     required this.value,
     this.sub,
-    this.hero = false,
-    this.onTap,
+    this.wide = false,
   });
 
   final IconData icon;
+  final Color color;
   final String label;
   final int value;
   final String? sub;
-  final bool hero;
-  final VoidCallback? onTap;
+  final bool wide;
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final fg = hero ? Colors.white : null;
-    final subColor = hero ? Colors.white70 : AppColors.muted;
-    return Material(
-      color: hero ? AppColors.primary : Theme.of(context).cardTheme.color,
-      borderRadius: BorderRadius.circular(18),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(icon, size: 18, color: hero ? Colors.white : AppColors.primary),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: t.labelMedium?.copyWith(color: fg ?? AppColors.muted, fontWeight: FontWeight.w600)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(formatNumber(value), style: t.headlineMedium?.copyWith(color: fg, fontWeight: FontWeight.w800)),
-              if (sub != null)
-                Text(sub!, maxLines: 2, overflow: TextOverflow.ellipsis, style: t.bodySmall?.copyWith(color: subColor)),
-            ],
-          ),
-        ),
-      ),
+    final chip = Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
+      child: Icon(icon, size: 22, color: color),
     );
-  }
-}
-
-class _OfficeChain extends StatelessWidget {
-  const _OfficeChain({required this.me});
-
-  final Json me;
-
-  @override
-  Widget build(BuildContext context) {
-    const levels = [
-      ('unit', 'អង្គភាព'),
-      ('general_directorate', 'អគ្គនាយកដ្ឋាន'),
-      ('department', 'នាយកដ្ឋាន'),
-      ('office', 'ការិយាល័យ'),
-    ];
-    final t = Theme.of(context).textTheme;
-    return Column(
+    final texts = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        for (var i = 0; i < levels.length; i++)
-          Padding(
-            padding: EdgeInsets.only(left: i * 14.0, top: 6, bottom: 6),
-            child: Row(
+        Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: t.labelLarge?.copyWith(color: AppColors.muted, fontWeight: FontWeight.w600)),
+        if (sub != null) ...[
+          const SizedBox(height: 2),
+          Text(sub!, maxLines: 2, overflow: TextOverflow.ellipsis, style: t.bodySmall?.copyWith(color: AppColors.muted)),
+        ],
+      ],
+    );
+    final number = Text(formatNumber(value), style: t.headlineMedium?.copyWith(fontWeight: FontWeight.w800));
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardTheme.color,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: wide
+          ? Row(
+              children: [
+                chip,
+                const SizedBox(width: 14),
+                Expanded(child: texts),
+                const SizedBox(width: 10),
+                number,
+              ],
+            )
+          : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: CircleAvatar(
-                    radius: 4,
-                    backgroundColor: i == levels.length - 1 ? AppColors.primary : AppColors.other,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(levels[i].$2, style: t.bodySmall?.copyWith(color: AppColors.muted)),
-                      Text(
-                        s(asObj(me[levels[i].$1])['name']).isEmpty ? '-' : s(asObj(me[levels[i].$1])['name']),
-                        style: t.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      if (s(asObj(me[levels[i].$1])['name_in_eng']).isNotEmpty)
-                        Text(s(asObj(me[levels[i].$1])['name_in_eng']),
-                            style: t.bodySmall?.copyWith(color: AppColors.muted)),
-                    ],
-                  ),
-                ),
+                chip,
+                const SizedBox(height: 14),
+                number,
+                const SizedBox(height: 4),
+                texts,
               ],
             ),
-          ),
-      ],
     );
   }
 }
@@ -567,6 +609,7 @@ class _NewDocumentsCardState extends ConsumerState<_NewDocumentsCard> {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     return SectionCard(
+      padding: const EdgeInsets.all(20),
       title: 'ឯកសារថ្មី',
       subtitle: '${_allTime ? 'គ្រប់ពេលវេលា' : monthLabel(widget.month)} · ${formatNumber(_total)} ឯកសារ',
       child: Column(
@@ -606,12 +649,13 @@ class _NewDocumentsCardState extends ConsumerState<_NewDocumentsCard> {
                     ? (_loading ? const SkeletonLines(lines: 5) : const EmptyState('គ្មានឯកសារថ្មី'))
                     : Column(
                         children: [
-                          for (final d in _rows)
+                          for (final (i, d) in _rows.indexed) ...[
+                            if (i > 0) const Divider(height: 1),
                             InkWell(
                               borderRadius: BorderRadius.circular(12),
                               onTap: () => _open(d),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -652,6 +696,7 @@ class _NewDocumentsCardState extends ConsumerState<_NewDocumentsCard> {
                                 ),
                               ),
                             ),
+                          ],
                         ],
                       ),
           ),

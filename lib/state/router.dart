@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../core/json.dart';
 import '../core/permission.dart';
 import '../features/account/account_page.dart';
+import '../features/account/change_password_page.dart';
 import '../features/admin/admin_page.dart';
 import '../features/admin/master_list_page.dart';
 import '../features/admin/org_tree_page.dart';
@@ -90,6 +91,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => FileViewerPage(
           args: state.extra is FileViewArgs ? state.extra as FileViewArgs : FileViewArgs(asObj(state.extra)),
         ),
+      ),
+      GoRoute(
+        path: '/account/password',
+        parentNavigatorKey: _rootKey,
+        builder: (_, __) => const ChangePasswordPage(),
       ),
       GoRoute(
         path: '/admin/users',

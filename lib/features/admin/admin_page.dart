@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../widgets/tab_header.dart';
 
 class _Entry {
   const _Entry(this.title, this.subtitle, this.icon, this.path);
@@ -29,17 +30,16 @@ class AdminPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+    return Column(
       children: [
-        Text('គ្រប់គ្រង', style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
-        const SizedBox(height: 2),
-        Text('អ្នកប្រើប្រាស់ និងទិន្នន័យមេ', style: t.bodySmall?.copyWith(color: AppColors.muted)),
-        const SizedBox(height: 14),
+        const TabHeader(title: 'គ្រប់គ្រង', subtitle: 'អ្នកប្រើប្រាស់ និងទិន្នន័យមេ'),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+            children: [
         for (final e in _entries)
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.only(bottom: 12),
             child: Card(
               child: ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -54,6 +54,9 @@ class AdminPage extends StatelessWidget {
               ),
             ),
           ),
+            ],
+          ),
+        ),
       ],
     );
   }

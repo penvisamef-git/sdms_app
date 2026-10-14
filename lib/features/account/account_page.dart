@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/app_info.dart';
 import '../../core/json.dart';
@@ -8,6 +9,7 @@ import '../../core/theme.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/skeleton.dart';
+import '../../widgets/tab_header.dart';
 
 class AccountPage extends ConsumerStatefulWidget {
   const AccountPage({super.key});
@@ -21,27 +23,12 @@ class _AccountPageState extends ConsumerState<AccountPage> {
   Json? _chain;
   bool _loading = true;
 
-  final _old = TextEditingController();
-  final _new = TextEditingController();
-  final _confirm = TextEditingController();
-  bool _show = false;
-  bool _saving = false;
-  String _error = '';
-
   @override
   void initState() {
     super.initState();
     final cached = ref.read(apiProvider).peekMyOffice();
     if (cached != null) _chain = asObj(cached['data']);
     _load();
-  }
-
-  @override
-  void dispose() {
-    _old.dispose();
-    _new.dispose();
-    _confirm.dispose();
-    super.dispose();
   }
 
   Future<void> _load() async {
@@ -57,29 +44,6 @@ class _AccountPageState extends ConsumerState<AccountPage> {
       _chain = r[1] == null ? null : asObj(r[1]!['data']);
       _loading = false;
     });
-  }
-
-  Future<void> _changePassword() async {
-    FocusScope.of(context).unfocus();
-    setState(() => _error = '');
-    if (_old.text.isEmpty) return setState(() => _error = 'សូមបញ្ចូលពាក្យសម្ងាត់ចាស់');
-    if (_new.text.isEmpty) return setState(() => _error = 'សូមបញ្ចូលពាក្យសម្ងាត់ថ្មី');
-    if (_new.text.length < 8) return setState(() => _error = 'ពាក្យសម្ងាត់ថ្មីត្រូវមានយ៉ាងតិច ៨ តួអក្សរ');
-    if (_new.text != _confirm.text) return setState(() => _error = 'ពាក្យសម្ងាត់បញ្ជាក់មិនត្រូវគ្នា');
-
-    setState(() => _saving = true);
-    try {
-      final res = await ref.read(apiProvider).changePassword(_old.text, _new.text);
-      if (!mounted) return;
-      showSnack(context, s(res['message']).isNotEmpty ? s(res['message']) : 'បានប្តូរពាក្យសម្ងាត់ថ្មី!');
-      _old.clear();
-      _new.clear();
-      _confirm.clear();
-    } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
   }
 
   Future<void> _logout() async {
@@ -105,9 +69,13 @@ class _AccountPageState extends ConsumerState<AccountPage> {
         : s(asObj(me['office_id'])['name']);
     final role = roleOf(me);
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+    return Column(
       children: [
+        const TabHeader(title: 'គណនី', subtitle: 'ព័ត៌មាន និងសុវត្ថិភាពគណនីរបស់អ្នក'),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+            children: [
         // ----- hero -----
         Container(
           padding: const EdgeInsets.all(20),
@@ -155,15 +123,15 @@ class _AccountPageState extends ConsumerState<AccountPage> {
           title: 'ព័ត៌មានផ្ទាល់ខ្លួន',
           child: Column(
             children: [
-              InfoRow('គោត្តនាម', s(me['firstname'])),
-              InfoRow('នាម', s(me['lastname'])),
-              InfoRow('អ៊ីមែល', s(me['email'])),
-              InfoRow('លេខទំនាក់ទំនង', s(me['contact'])),
-              InfoRow('តួនាទី', role),
+              _DetailRow(Icons.person_outline_rounded, 'គោត្តនាម', s(me['firstname'])),
+              _DetailRow(Icons.badge_outlined, 'នាម', s(me['lastname'])),
+              _DetailRow(Icons.mail_outline_rounded, 'អ៊ីមែល', s(me['email'])),
+              _DetailRow(Icons.phone_outlined, 'លេខទំនាក់ទំនង', s(me['contact'])),
+              _DetailRow(Icons.shield_outlined, 'តួនាទី', role, last: true),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
 
         SectionCard(
           title: 'ទីតាំងការងារ',
@@ -211,38 +179,16 @@ class _AccountPageState extends ConsumerState<AccountPage> {
         const SizedBox(height: 12),
 
         SectionCard(
-          title: 'ប្តូរពាក្យសម្ងាត់',
-          subtitle: 'ឧបករណ៍ផ្សេងទៀតនឹងត្រូវចូលគណនីម្តងទៀត (យ៉ាងតិច ៨ តួអក្សរ)',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _pwd(_old, 'ពាក្យសម្ងាត់ចាស់'),
-              const SizedBox(height: 12),
-              _pwd(_new, 'ពាក្យសម្ងាត់ថ្មី'),
-              const SizedBox(height: 12),
-              _pwd(_confirm, 'បញ្ជាក់ពាក្យសម្ងាត់ថ្មី'),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () => setState(() => _show = !_show),
-                  icon: Icon(_show ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
-                  label: Text(_show ? 'លាក់' : 'បង្ហាញ'),
-                ),
-              ),
-              if (_error.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(_error, style: const TextStyle(color: AppColors.danger)),
-                ),
-              FilledButton.icon(
-                onPressed: _saving ? null : _changePassword,
-                icon: const Icon(Icons.key_rounded),
-                label: Text(_saving ? 'កំពុងរក្សាទុក...' : 'ប្តូរពាក្យសម្ងាត់'),
-              ),
-            ],
+          title: 'សុវត្ថិភាព',
+          padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+          child: _ActionRow(
+            icon: Icons.lock_reset_rounded,
+            title: 'ប្តូរពាក្យសម្ងាត់',
+            subtitle: 'ផ្លាស់ប្តូរពាក្យសម្ងាត់ចូលគណនីរបស់អ្នក',
+            onTap: () => context.push('/account/password'),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
 
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
@@ -255,6 +201,9 @@ class _AccountPageState extends ConsumerState<AccountPage> {
         ),
         const SizedBox(height: 16),
         Center(child: Text(AppInfo.versionText, style: t.bodySmall?.copyWith(color: AppColors.muted))),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -271,11 +220,97 @@ class _AccountPageState extends ConsumerState<AccountPage> {
           ],
         ),
       );
+}
 
-  Widget _pwd(TextEditingController c, String label) => TextField(
-        controller: c,
-        enabled: !_saving,
-        obscureText: !_show,
-        decoration: InputDecoration(labelText: label, prefixIcon: const Icon(Icons.lock_outline_rounded)),
-      );
+/// icon box + label + value; every row has the same height and alignment
+class _DetailRow extends StatelessWidget {
+  const _DetailRow(this.icon, this.label, this.value, {this.last = false});
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool last;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return Column(
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 68),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                child: Icon(icon, size: 20, color: AppColors.primary),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(label, style: t.bodySmall?.copyWith(color: AppColors.muted)),
+                    const SizedBox(height: 2),
+                    Text(value.trim().isEmpty ? '-' : value, style: t.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ],
+            ),
+          ),
+        ),
+        if (!last) const Divider(height: 1),
+      ],
+    );
+  }
+}
+
+/// a row that opens another page (icon, title, small text and a chevron)
+class _ActionRow extends StatelessWidget {
+  const _ActionRow({required this.icon, required this.title, required this.subtitle, required this.onTap});
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon, size: 20, color: AppColors.primary),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: t.bodyLarge?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: t.bodySmall?.copyWith(color: AppColors.muted)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+            const SizedBox(width: 4),
+          ],
+        ),
+      ),
+    );
+  }
 }
