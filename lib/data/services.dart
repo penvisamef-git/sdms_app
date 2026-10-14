@@ -42,7 +42,7 @@ class Api {
   final Resource documents;
 
   // ---------------- Auth ----------------
-  /// Mobile login. The account must have "can_login_in_app" switched on.
+  /// Mobile login. Every active web account can sign in.
   Future<Json> login(String email, String password) =>
       client.post('/auth/login/app', body: {'email': email, 'password': password}, skipAuth: true);
 

@@ -10,7 +10,7 @@ flutter pub get
 flutter run
 ```
 
-Accounts must have **"អនុញ្ញាតឱ្យចូលប្រើក្នុង Mobile App"** switched on (User form on the web).
+Every active web account can sign in to the app with the same email and password.
 
 ## Settings
 

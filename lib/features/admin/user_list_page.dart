@@ -63,11 +63,6 @@ class UserListPage extends ConsumerWidget {
           hint: '-- ជ្រើសរើសក្រុមសិទ្ធិ --',
           options: (a) async => [for (final r in Role.all) Option(r, r)],
         ),
-        const FieldDef(
-          'can_login_in_app',
-          'អនុញ្ញាតឱ្យចូលប្រើក្នុង Mobile App',
-          type: FieldType.checkbox,
-        ),
         const FieldDef('note', 'កំណត់សម្គាល់', type: FieldType.textarea),
       ],
     );
