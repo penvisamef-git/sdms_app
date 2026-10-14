@@ -85,7 +85,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/file',
         parentNavigatorKey: _rootKey,
-        builder: (_, state) => FileViewerPage(file: asObj(state.extra)),
+        builder: (_, state) => FileViewerPage(
+          args: state.extra is FileViewArgs ? state.extra as FileViewArgs : FileViewArgs(asObj(state.extra)),
+        ),
       ),
       GoRoute(
         path: '/admin/users',

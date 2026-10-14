@@ -1,16 +1,23 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/format.dart';
 import '../../core/json.dart';
 import '../../core/theme.dart';
+import '../../data/api_client.dart';
+import '../../data/cloudinary_upload.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/org_tree_picker.dart';
 import '../../widgets/receiver_card.dart';
 import '../../widgets/select_sheet.dart';
 import 'doc_helpers.dart';
+import 'file_viewer_page.dart';
 import 'tracking_panel.dart';
 
 /// Detail page: information, files, actions (receive / forward / return / finish / send) and tracking.
@@ -201,6 +208,112 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
   void _send() {
     if (!_needReceiver()) return;
     _run(() => ref.read(apiProvider).documentSend(widget.id, {..._receivers, 'note': _note.text}), 'បានផ្ញើ!');
+  }
+
+
+  // ----- signed PDF: store it back (same rules as the web) -----
+  static const int _maxSignedMb = 20;
+
+  /// Why a signed copy cannot be saved right now ('' = it can).
+  String get _saveBlockedReason {
+    final mine = _mine;
+    final holdsIt = s(mine?['status']) == 'pending' || s(mine?['status']) == 'received';
+    if (holdsIt) return '';
+    final wasSent = _alreadySent || _timeline.isNotEmpty;
+    if (_isOwner) {
+      if (!wasSent) return '';
+      return mine != null
+          ? 'ឯកសារត្រូវបាន${s(mine['status']) == 'forwarded' ? 'បញ្ជូនបន្ត' : 'ដំណើរការ'}រួចហើយ'
+          : 'ឯកសារត្រូវបានផ្ញើរួចហើយ';
+    }
+    return mine != null ? 'ឯកសារត្រូវបានបញ្ជូនបន្តរួចហើយ' : 'អ្នកមិនមានសិទ្ធិលើឯកសារនេះទេ';
+  }
+
+  Future<Json> _saveSigned(Uint8List bytes, Json file) async {
+    final doc = _doc;
+    if (doc == null) throw ApiException('មិនមានឯកសារ');
+    if (bytes.length > _maxSignedMb * 1024 * 1024) {
+      throw ApiException('ឯកសារធំពេក! (អតិបរមា $_maxSignedMb MB)');
+    }
+    final api = ref.read(apiProvider);
+    final oldId = s(file['public_id']);
+    final mainList = asList(doc['document_main_url']);
+    final mainIndex = mainList.indexWhere((f) => s(f['public_id']) == oldId);
+    final refList = asList(doc['reference_document']);
+    final refIndex = refList.indexWhere((r) => asList(r['files']).any((f) => s(f['public_id']) == oldId));
+    if (mainIndex < 0 && refIndex < 0) throw ApiException('រកមិនឃើញឯកសារនេះក្នុងឯកសារដើមទេ');
+
+    final name = s(file['original_name']).isEmpty ? 'document.pdf' : s(file['original_name']);
+
+    // straight to Cloudinary (no size limit from the API)
+    final dir = await getTemporaryDirectory();
+    final tmp = File('${dir.path}/signed_${DateTime.now().microsecondsSinceEpoch}.pdf');
+    await tmp.writeAsBytes(bytes, flush: true);
+    Json saved;
+    try {
+      final up = await uploadToCloudinary(
+        api,
+        [LocalFile(path: tmp.path, name: name, size: bytes.length)],
+        mainIndex >= 0 ? 'documents' : 'references',
+      );
+      saved = up.first;
+    } finally {
+      try {
+        await tmp.delete();
+      } catch (_) {}
+    }
+    saved['original_name'] = s(saved['original_name']).isEmpty ? name : saved['original_name'];
+
+    // a receiver cannot edit the document: the API replaces the file for them
+    if (!_isOwner) {
+      final refFileIndex = refIndex >= 0
+          ? asList(refList[refIndex]['files']).indexWhere((f) => s(f['public_id']) == oldId)
+          : -1;
+      final res = await api.documentReplaceFile(widget.id, {'public_id': oldId, 'file': saved});
+      final d = asObj(res['data']);
+      var fresh = asObj(res['file']);
+      if (s(fresh['url']).isEmpty) {
+        fresh = mainIndex >= 0
+            ? (mainIndex < asList(d['document_main_url']).length ? asList(d['document_main_url'])[mainIndex] : <String, dynamic>{})
+            : (refIndex < asList(d['reference_document']).length &&
+                    refFileIndex >= 0 &&
+                    refFileIndex < asList(asList(d['reference_document'])[refIndex]['files']).length
+                ? asList(asList(d['reference_document'])[refIndex]['files'])[refFileIndex]
+                : <String, dynamic>{});
+      }
+      if (s(fresh['url']).isEmpty) throw ApiException('រក្សាទុកមិនបានសម្រេច');
+      return fresh;
+    }
+
+    // the creator office / a super admin edits the document itself
+    final body = mainIndex >= 0
+        ? <String, dynamic>{
+            'document_main_url': [for (var i = 0; i < mainList.length; i++) i == mainIndex ? saved : mainList[i]],
+          }
+        : <String, dynamic>{
+            'reference_document': [
+              for (final r in refList)
+                {
+                  'number_document': s(r['number_document']),
+                  'date_sign': s(r['date_sign']).isEmpty ? null : r['date_sign'],
+                  'objective': s(r['objective']),
+                  'files': [for (final f in asList(r['files'])) s(f['public_id']) == oldId ? saved : f],
+                },
+            ],
+          };
+    await api.documentUpdate(widget.id, body);
+    return saved;
+  }
+
+  Future<void> _openFile(Json f) async {
+    await context.push(
+      '/file',
+      extra: FileViewArgs(f, onSave: _saveSigned, saveBlockedReason: _saveBlockedReason),
+    );
+    if (mounted) {
+      ref.read(apiClientProvider).clearCache();
+      _load();
+    }
   }
 
   @override
@@ -505,7 +618,7 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
               ),
               subtitle: Text([s(f['format']), formatBytes(f['bytes'])].where((e) => e.isNotEmpty).join(' · ')),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/file', extra: f),
+              onTap: () => _openFile(f),
             ),
           ),
       ],

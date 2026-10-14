@@ -26,8 +26,9 @@ flutter run --dart-define=API_HOST=https://sdms-api.vercel.app --dart-define=API
 - Home: month + date-field filters, summary tiles, charts, latest new documents, my office chain
 - ឯកសារចូល / ឯកសារចេញ: lists with search, paging, filters
 - Document detail: information, files (PDF / image viewer), receive, forward, return, finish, send, tracking
+- Write / sign on a PDF (pen button in the file viewer): text boxes, pen, signature; saves the signed PDF back to the document (same rules as the web). Pages you write on become images; untouched pages stay as they are.
 - Create / edit document: files go straight to Cloudinary (no size limit from the API)
 - Account: profile, office chain, change password, logout
 - Admin (super admin): users (add, edit, delete, reset password) and the 7 master-data lists
 
-Not in this version yet: PDF signing / annotation, push notifications.
+Not in this version yet: push notifications.

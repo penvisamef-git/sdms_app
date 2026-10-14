@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -6,6 +8,7 @@ import '../../core/format.dart';
 import '../../core/json.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../pdf/pdf_annotator_page.dart';
 
 const _imageExt = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'heic'];
 
@@ -17,19 +20,61 @@ String fileExtension(Json f) {
   return dot > 0 ? src.substring(dot + 1).toLowerCase() : '';
 }
 
-/// Opens one document file inside the app: PDF (pdfrx), image (zoom), anything else in the system viewer.
-class FileViewerPage extends StatelessWidget {
-  const FileViewerPage({super.key, required this.file});
+/// What the viewer needs: the file and (optionally) how to store a signed copy of it.
+class FileViewArgs {
+  const FileViewArgs(this.file, {this.onSave, this.saveBlockedReason = ''});
 
   final Json file;
 
+  /// Uploads the signed PDF and replaces [file]; returns the new file info. Null = no signing tools.
+  final Future<Json> Function(Uint8List bytes, Json file)? onSave;
+
+  /// Not empty: the tools open but saving is refused with this message.
+  final String saveBlockedReason;
+}
+
+/// Opens one document file inside the app: PDF (pdfrx), image (zoom), anything else in the system viewer.
+/// A PDF can be written on / signed with the pen button when [FileViewArgs.onSave] is given.
+class FileViewerPage extends StatefulWidget {
+  const FileViewerPage({super.key, required this.args});
+
+  final FileViewArgs args;
+
+  @override
+  State<FileViewerPage> createState() => _FileViewerPageState();
+}
+
+class _FileViewerPageState extends State<FileViewerPage> {
+  late Json _file = widget.args.file;
+  int _version = 0; // bumps after a signed copy is saved so the viewer reloads
+
   Future<void> _external(BuildContext context) async {
-    final ok = await launchUrl(Uri.parse(s(file['url'])), mode: LaunchMode.externalApplication);
+    final ok = await launchUrl(Uri.parse(s(_file['url'])), mode: LaunchMode.externalApplication);
     if (!ok && context.mounted) showSnack(context, 'មិនអាចបើកឯកសារបានទេ', error: true);
+  }
+
+  Future<void> _sign() async {
+    final fresh = await Navigator.of(context).push<Json>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => PdfAnnotatorPage(
+          file: _file,
+          onSave: widget.args.onSave!,
+          blockedReason: widget.args.saveBlockedReason,
+        ),
+      ),
+    );
+    if (fresh == null || !mounted) return;
+    setState(() {
+      _file = fresh;
+      _version++;
+    });
+    showSnack(context, 'បានរក្សាទុក — ឯកសារដើមត្រូវបានជំនួសដោយឯកសារដែលបានចុះហត្ថលេខា');
   }
 
   @override
   Widget build(BuildContext context) {
+    final file = _file;
     final url = s(file['url']);
     final ext = fileExtension(file);
     final isPdf = ext == 'pdf';
@@ -42,6 +87,7 @@ class FileViewerPage extends StatelessWidget {
     } else if (isPdf) {
       body = PdfViewer.uri(
         Uri.parse(url),
+        key: ValueKey('pdf-$_version-$url'),
         params: PdfViewerParams(
           backgroundColor: const Color(0xFFE8ECEB),
           errorBannerBuilder: (context, error, stackTrace, documentRef) => ErrorState(
@@ -94,6 +140,12 @@ class FileViewerPage extends StatelessWidget {
           ],
         ),
         actions: [
+          if (isPdf && widget.args.onSave != null)
+            IconButton(
+              tooltip: 'សរសេរ / ចុះហត្ថលេខា',
+              icon: const Icon(Icons.draw_outlined),
+              onPressed: _sign,
+            ),
           IconButton(
             tooltip: 'បើកក្នុងកម្មវិធីផ្សេង',
             icon: const Icon(Icons.open_in_new),
