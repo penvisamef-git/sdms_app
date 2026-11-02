@@ -10,6 +10,7 @@ import '../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/skeleton.dart';
 import '../../widgets/tab_header.dart';
+import 'my_links_card.dart';
 
 class AccountPage extends ConsumerStatefulWidget {
   const AccountPage({super.key});
@@ -133,6 +134,11 @@ class _AccountPageState extends ConsumerState<AccountPage> {
         ),
         const SizedBox(height: 16),
 
+        // the Big Boss has no office; he manages his own deep links instead
+        if (isBoss(me)) ...[
+          const MyLinksCard(),
+          const SizedBox(height: 12),
+        ] else
         SectionCard(
           title: 'ទីតាំងការងារ',
           child: _loading && _chain == null

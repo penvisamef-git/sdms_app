@@ -55,6 +55,28 @@ class Api {
   Future<Json> confirmPassword(String password) =>
       client.post('/auth/confirm-password', body: {'password': password});
 
+  /// Big Boss: my own personal deep links.
+  Future<Json> myLinks() => client.get('/auth/links');
+  Future<Json> createLink({required String label, required int days, required bool once, required String password}) =>
+      client.post('/auth/links', body: {'label': label, 'days': days, 'once': once, 'password': password});
+  Future<Json> revokeLink(String id) => client.delete('/auth/links/$id');
+
+  /// Super admin: a new deep link FOR any user (not a super admin). Answers { url, app_url } (shown only once).
+  Future<Json> createUserLink({
+    required String userId,
+    String label = '',
+    int days = 90,
+    bool once = false,
+    bool reset = true,
+  }) =>
+      client.post('/auth/links/for-user', body: {
+        'user_id': userId,
+        'label': label,
+        'days': days,
+        'once': once,
+        'reset': reset,
+      });
+
   /// Ends this device's session on the server (older servers do not have it: ignore errors).
   Future<void> logout() async {
     try {
