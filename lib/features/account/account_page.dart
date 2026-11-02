@@ -80,37 +80,35 @@ class _AccountPageState extends ConsumerState<AccountPage> {
             children: [
         // ----- hero -----
         Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppColors.primaryDark, AppColors.primary],
-            ),
+            color: AppColors.card(context),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border(context)),
           ),
           child: Row(
             children: [
               CircleAvatar(
-                radius: 32,
-                backgroundColor: Colors.white.withValues(alpha: 0.2),
-                child: Text(initial, style: t.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
+                radius: 28,
+                backgroundColor: AppColors.softOf(context),
+                child: Text(initial, style: t.headlineSmall?.copyWith(color: AppColors.strong(context), fontWeight: FontWeight.w700)),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(fullName.isEmpty ? 'គណនីរបស់ខ្ញុំ' : fullName,
-                        style: t.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
-                    Text(s(me['email']).isEmpty ? '-' : s(me['email']), style: t.bodySmall?.copyWith(color: Colors.white70)),
-                    const SizedBox(height: 8),
+                        maxLines: 1, overflow: TextOverflow.ellipsis, style: t.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(s(me['email']).isEmpty ? '-' : s(me['email']),
+                        maxLines: 1, overflow: TextOverflow.ellipsis, style: t.bodySmall?.copyWith(color: AppColors.muted)),
+                    const SizedBox(height: 6),
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
                       children: [
-                        if (role.isNotEmpty) _chip(Icons.shield_outlined, role),
-                        if (officeName.isNotEmpty) _chip(Icons.apartment_rounded, officeName),
+                        if (role.isNotEmpty) _chip(context, Icons.shield_outlined, role, gold: isBoss(me)),
+                        if (officeName.isNotEmpty) _chip(context, Icons.apartment_rounded, officeName),
                       ],
                     ),
                   ],
@@ -204,26 +202,15 @@ class _AccountPageState extends ConsumerState<AccountPage> {
         ),
         const SizedBox(height: 12),
 
-        SectionCard(
-          title: 'សុវត្ថិភាព',
-          padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
-          child: _ActionRow(
-            icon: Icons.lock_reset_rounded,
-            title: 'ប្តូរពាក្យសម្ងាត់',
-            subtitle: 'ផ្លាស់ប្តូរពាក្យសម្ងាត់ចូលគណនីរបស់អ្នក',
-            onTap: () => context.push('/account/password'),
+        Card(
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              _SimpleRow(icon: Icons.lock_outline_rounded, title: 'ប្តូរពាក្យសម្ងាត់', onTap: () => context.push('/account/password')),
+              const Divider(height: 1),
+              _SimpleRow(icon: Icons.logout_rounded, title: 'ចាកចេញ', danger: true, onTap: _logout),
+            ],
           ),
-        ),
-        const SizedBox(height: 20),
-
-        OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.danger,
-            side: const BorderSide(color: AppColors.danger),
-          ),
-          onPressed: _logout,
-          icon: const Icon(Icons.logout_rounded),
-          label: const Text('ចាកចេញ'),
         ),
         const SizedBox(height: 16),
         Center(child: Text(AppInfo.versionText, style: t.bodySmall?.copyWith(color: AppColors.muted))),
@@ -234,18 +221,52 @@ class _AccountPageState extends ConsumerState<AccountPage> {
     );
   }
 
-  Widget _chip(IconData icon, String text) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(999)),
+  Widget _chip(BuildContext context, IconData icon, String text, {bool gold = false}) {
+    final dark = AppColors.isDark(context);
+    final bg = gold ? (dark ? const Color(0xFF3A2F0F) : const Color(0xFFFBF3D5)) : AppColors.softOf(context);
+    final fg = gold ? (dark ? const Color(0xFFE8D48A) : const Color(0xFF7A5F08)) : AppColors.strong(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: fg),
+          const SizedBox(width: 4),
+          Flexible(child: Text(text, style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis)),
+        ],
+      ),
+    );
+  }
+}
+
+/// one tappable row of the security card
+class _SimpleRow extends StatelessWidget {
+  const _SimpleRow({required this.icon, required this.title, required this.onTap, this.danger = false});
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = danger ? (AppColors.isDark(context) ? const Color(0xFFFF8A94) : const Color(0xFFB02A37)) : null;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13, color: Colors.white),
-            const SizedBox(width: 4),
-            Flexible(child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 12), overflow: TextOverflow.ellipsis)),
+            Icon(icon, size: 20, color: c),
+            const SizedBox(width: 12),
+            Expanded(child: Text(title, style: TextStyle(fontSize: 15, fontWeight: danger ? FontWeight.w600 : FontWeight.w500, color: c))),
+            if (!danger) const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
           ],
         ),
-      );
+      ),
+    );
+  }
 }
 
 /// icon box + label + value; every row has the same height and alignment
@@ -292,51 +313,6 @@ class _DetailRow extends StatelessWidget {
         ),
         if (!last) const Divider(height: 1),
       ],
-    );
-  }
-}
-
-/// a row that opens another page (icon, title, small text and a chevron)
-class _ActionRow extends StatelessWidget {
-  const _ActionRow({required this.icon, required this.title, required this.subtitle, required this.onTap});
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-              child: Icon(icon, size: 20, color: AppColors.primary),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: t.bodyLarge?.copyWith(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
-                  Text(subtitle, style: t.bodySmall?.copyWith(color: AppColors.muted)),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
-            const SizedBox(width: 4),
-          ],
-        ),
-      ),
     );
   }
 }
