@@ -7,6 +7,7 @@ import '../../core/json.dart';
 import '../../core/permission.dart';
 import '../../core/theme.dart';
 import '../../state/providers.dart';
+import '../../state/theme_mode.dart';
 import '../../widgets/common.dart';
 import '../../widgets/skeleton.dart';
 import '../../widgets/tab_header.dart';
@@ -181,6 +182,25 @@ class _AccountPageState extends ConsumerState<AccountPage> {
                       ),
                   ],
                 ),
+        ),
+        const SizedBox(height: 12),
+
+        SectionCard(
+          title: 'រូបរាង',
+          subtitle: 'ជ្រើសរើសរបៀបភ្លឺ ឬងងឹត',
+          child: SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<ThemeMode>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto_rounded), label: Text('ប្រព័ន្ធ')),
+                ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode_outlined), label: Text('ភ្លឺ')),
+                ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode_outlined), label: Text('ងងឹត')),
+              ],
+              selected: {ref.watch(themeModeProvider)},
+              onSelectionChanged: (v) => ref.read(themeModeProvider.notifier).set(v.first),
+            ),
+          ),
         ),
         const SizedBox(height: 12),
 

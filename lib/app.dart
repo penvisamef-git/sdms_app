@@ -8,6 +8,7 @@ import 'core/theme.dart';
 import 'data/push_service.dart';
 import 'state/providers.dart';
 import 'state/router.dart';
+import 'state/theme_mode.dart';
 
 class SdmsApp extends ConsumerStatefulWidget {
   const SdmsApp({super.key});
@@ -102,7 +103,7 @@ class _SdmsAppState extends ConsumerState<SdmsApp> with WidgetsBindingObserver {
       scaffoldMessengerKey: scaffoldMessengerKey,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      themeMode: ThemeMode.system,
+      themeMode: ref.watch(themeModeProvider),
       routerConfig: router,
       builder: (context, child) {
         // keep the layout stable when the phone uses a very large font size
