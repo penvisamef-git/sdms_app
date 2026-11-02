@@ -544,10 +544,6 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.danger,
-                    side: BorderSide(color: AppColors.danger.withValues(alpha: 0.5)),
-                  ),
                   onPressed: _busy ? null : _return,
                   icon: const Icon(Icons.undo_rounded),
                   label: const Text('រុញត្រឡប់'),
@@ -556,6 +552,7 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(side: const BorderSide(color: AppColors.primary)),
                   onPressed: _busy ? null : _finish,
                   icon: const Icon(Icons.check_rounded),
                   label: const Text('បញ្ចប់'),

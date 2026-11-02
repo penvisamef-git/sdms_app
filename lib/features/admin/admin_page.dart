@@ -37,23 +37,29 @@ class AdminPage extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
             children: [
-        for (final e in _entries)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Card(
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                leading: CircleAvatar(
-                  backgroundColor: AppColors.softOf(context),
-                  child: Icon(e.icon, color: AppColors.primary),
+        Card(
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              for (final (i, e) in _entries.indexed) ...[
+                if (i > 0) const Divider(height: 1, indent: 68),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(color: AppColors.softOf(context), borderRadius: BorderRadius.circular(10)),
+                    child: Icon(e.icon, size: 22, color: AppColors.strong(context)),
+                  ),
+                  title: Text(e.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text(e.subtitle),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push(e.path),
                 ),
-                title: Text(e.title, style: const TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text(e.subtitle),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.push(e.path),
-              ),
-            ),
+              ],
+            ],
           ),
+        ),
             ],
           ),
         ),

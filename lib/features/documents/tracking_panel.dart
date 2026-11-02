@@ -29,12 +29,16 @@ class TrackingPanel extends StatelessWidget {
 
     Widget tile(String label, String value) => Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(color: AppColors.softOf(context), borderRadius: BorderRadius.circular(14)),
+          decoration: BoxDecoration(
+            color: AppColors.bg(context),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border(context)),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(value, style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800, color: AppColors.strong(context))),
-              Text(label, style: t.bodySmall?.copyWith(color: AppColors.muted)),
+              Text(value, style: t.titleLarge?.copyWith(fontWeight: FontWeight.w700, color: AppColors.strong(context))),
+              Text(label, style: t.bodySmall?.copyWith(color: AppColors.muted, fontSize: 11.5)),
             ],
           ),
         );
@@ -74,13 +78,28 @@ class TrackingPanel extends StatelessWidget {
           for (final h in holders)
             Container(
               margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                border: Border.all(color: Theme.of(context).dividerColor),
-                borderRadius: BorderRadius.circular(14),
+                color: AppColors.softOf(context),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: AppColors.isDark(context) ? AppColors.darkAccent : AppColors.primaryDark,
+                    child: Text(
+                      () {
+                        final n = _place(h['office'], h['user']);
+                        return n == '-' ? '?' : String.fromCharCodes(n.runes.take(1));
+                      }(),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.isDark(context) ? const Color(0xFF06281C) : Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -129,7 +148,12 @@ class _TimelineItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final st = transferStatus[s(item['status'])];
-    final color = s(item['action']) == 'return' ? AppColors.danger : AppColors.primary;
+    final isReturn = s(item['action']) == 'return';
+    final now = s(item['status']) == 'pending' || s(item['status']) == 'received';
+    final dark = AppColors.isDark(context);
+    final Color dot = now ? AppColors.card(context) : (isReturn ? AppColors.danger : AppColors.primary);
+    final Color ring = now ? AppColors.gold : (isReturn ? AppColors.dangerSoft : (dark ? const Color(0xFF1B3A2C) : const Color(0xFFDDEFE3)));
+    final Color line = now ? AppColors.border(context) : (isReturn ? AppColors.danger : AppColors.primary);
     final flow = s(asObj(item['status_of_process_id'])['name']);
     final received = s(item['date_received']);
 
@@ -138,17 +162,21 @@ class _TimelineItem extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
-            width: 34,
+            width: 20,
             child: Column(
               children: [
-                CircleAvatar(radius: 14, backgroundColor: color.withValues(alpha: 0.14), child: Icon(_icon, size: 15, color: color)),
-                if (!last) Expanded(child: Container(width: 2, color: Theme.of(context).dividerColor)),
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(color: dot, shape: BoxShape.circle, border: Border.all(color: ring, width: 3)),
+                ),
+                if (!last) Expanded(child: Container(width: 2, color: line)),
               ],
             ),
           ),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(left: 8, bottom: last ? 0 : 16),
+              padding: EdgeInsets.only(left: 12, bottom: last ? 0 : 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -158,8 +186,15 @@ class _TimelineItem extends StatelessWidget {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text('ជំហាន ${s(item['step'])}', style: t.bodySmall?.copyWith(color: AppColors.muted)),
-                      Text(transferAction[s(item['action'])] ?? s(item['action']),
-                          style: t.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(_icon, size: 15, color: isReturn ? AppColors.danger : AppColors.muted),
+                          const SizedBox(width: 4),
+                          Text(transferAction[s(item['action'])] ?? s(item['action']),
+                              style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                        ],
+                      ),
                       if (st != null) StatusBadge(st.label, tone: st.tone),
                       if (flow.isNotEmpty) StatusBadge(flow, tone: Tone.neutral),
                     ],
