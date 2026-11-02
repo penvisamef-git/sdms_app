@@ -544,6 +544,10 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.danger,
+                    side: BorderSide(color: AppColors.danger.withValues(alpha: 0.5)),
+                  ),
                   onPressed: _busy ? null : _return,
                   icon: const Icon(Icons.undo_rounded),
                   label: const Text('រុញត្រឡប់'),
@@ -709,7 +713,7 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
                     : fileIconName(f) == 'image'
                         ? Icons.image_outlined
                         : Icons.insert_drive_file_outlined,
-                color: AppColors.primary,
+                color: AppColors.brand(context),
               ),
               title: Text(
                 s(f['original_name']).isEmpty ? s(f['public_id']) : s(f['original_name']),

@@ -80,6 +80,7 @@ class _DocListPageState extends ConsumerState<DocListPage> {
       }
     } else {
       params['box'] = 'out';
+      if (_status.isNotEmpty) params['status'] = _status;
       if (_search.isNotEmpty) {
         params['q'] = _search;
         params['q_key'] = _searchKeys;
@@ -167,14 +168,20 @@ class _DocListPageState extends ConsumerState<DocListPage> {
           : FloatingActionButton.extended(
               onPressed: _create,
               icon: const Icon(Icons.add),
-              label: const Text('ឯកសារចេញ'),
+              label: const Text('ឯកសារថ្មី'),
+              shape: const StadiumBorder(),
+              backgroundColor: AppColors.isDark(context) ? AppColors.darkAccent : AppColors.primaryDark,
+              foregroundColor: AppColors.isDark(context) ? const Color(0xFF06281C) : Colors.white,
             ),
       body: Column(
         children: [
           TabHeader(
             title: widget.boss == 'history' ? 'ប្រវត្តិ' : (_isIn ? 'ឯកសារចូល' : 'ឯកសារចេញ'),
             subtitle: _total > 0 ? '$_total ឯកសារ' : null,
-            bottom: Row(
+            bottom: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+            Row(
               children: [
                 Expanded(
                   child: TextField(
@@ -223,6 +230,36 @@ class _DocListPageState extends ConsumerState<DocListPage> {
                 ],
               ],
             ),
+                if (!_isIn) ...[
+                  const SizedBox(height: 10),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (final (value, label) in const [
+                          ('', 'ទាំងអស់'),
+                          ('new', 'ថ្មី'),
+                          ('process', 'កំពុងដំណើរការ'),
+                          ('close', 'បិទ'),
+                        ])
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: _FilterChip(
+                              label: label,
+                              selected: _status == value,
+                              onTap: () {
+                                if (_status == value) return;
+                                setState(() => _status = value);
+                                _load(reset: true);
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
           Expanded(
             child: RefreshIndicator(
@@ -252,9 +289,9 @@ class _DocListPageState extends ConsumerState<DocListPage> {
     return ListView.separated(
       controller: _scroll,
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(16, 4, 16, _isIn ? 24 : 96),
+      padding: EdgeInsets.fromLTRB(20, 4, 20, _isIn ? 24 : 96),
       itemCount: rows.length + 1,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      separatorBuilder: (_, i) => i < rows.length - 1 ? const Divider(height: 1) : const SizedBox.shrink(),
       itemBuilder: (_, i) {
         if (i == rows.length) {
           if (_loading) {
@@ -305,6 +342,43 @@ class _DocListPageState extends ConsumerState<DocListPage> {
   }
 }
 
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({required this.label, required this.selected, required this.onTap});
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = AppColors.isDark(context);
+    final on = dark ? AppColors.darkAccent : AppColors.primaryDark;
+    return InkWell(
+      borderRadius: BorderRadius.circular(17),
+      onTap: onTap,
+      child: Container(
+        height: 34,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? on : Colors.transparent,
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: selected ? on : AppColors.border(context)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13.5,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            color: selected ? (dark ? const Color(0xFF06281C) : Colors.white) : null,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One document row: flat, separated by hairlines (design A).
 class _DocCard extends StatelessWidget {
   const _DocCard({
     required this.code,
@@ -331,18 +405,13 @@ class _DocCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      shape: highlight
-          ? RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-              side: const BorderSide(color: AppColors.warn, width: 1.4),
-            )
-          : null,
+    final meta = [if (number.isNotEmpty) 'លេខ $number', if (type.isNotEmpty) type].join(' · ');
+    return Material(
+      color: highlight ? AppColors.warn.withValues(alpha: 0.08) : Colors.transparent,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -351,27 +420,23 @@ class _DocCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       code.isEmpty ? '-' : code,
-                      style: t.labelLarge?.copyWith(color: AppColors.primary, fontWeight: FontWeight.w800),
+                      style: t.labelLarge?.copyWith(color: AppColors.strong(context), fontWeight: FontWeight.w600, fontSize: 12.5),
                     ),
                   ),
                   if (badge != null) badge!,
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 2),
               Text(
                 objective.isEmpty ? (number.isEmpty ? '-' : number) : objective,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                style: t.titleSmall?.copyWith(fontWeight: FontWeight.w600, fontSize: 15.5, height: 1.5),
               ),
-              const SizedBox(height: 6),
-              if (number.isNotEmpty || type.isNotEmpty)
-                Text(
-                  [if (number.isNotEmpty) 'លេខ $number', if (type.isNotEmpty) type].join(' · '),
-                  style: t.bodySmall?.copyWith(color: AppColors.muted),
-                ),
-              Text(line1, maxLines: 2, overflow: TextOverflow.ellipsis, style: t.bodySmall?.copyWith(color: AppColors.muted)),
-              Text(line2, style: t.bodySmall?.copyWith(color: AppColors.muted)),
+              if (meta.isNotEmpty)
+                Text(meta, style: t.bodySmall?.copyWith(color: AppColors.muted, fontSize: 12.5)),
+              Text('$line1 · $line2',
+                  maxLines: 2, overflow: TextOverflow.ellipsis, style: t.bodySmall?.copyWith(color: AppColors.muted, fontSize: 12.5)),
             ],
           ),
         ),

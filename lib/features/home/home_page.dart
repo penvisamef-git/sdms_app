@@ -128,34 +128,48 @@ class _HomePageState extends ConsumerState<HomePage> {
           ],
           bottom: Row(
             children: [
-              IconButton.filledTonal(
+              _Pill(
                 tooltip: 'ខែមុន',
-                onPressed: () => _setMonth(shiftMonth(_month, -1)),
-                icon: const Icon(Icons.chevron_left_rounded),
+                onTap: () => _setMonth(shiftMonth(_month, -1)),
+                child: const Icon(Icons.chevron_left_rounded, size: 20),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: FilledButton.tonalIcon(
-                  style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
-                  onPressed: _pickMonth,
-                  icon: const Icon(Icons.calendar_month_rounded, size: 20),
-                  label: Text(monthLabel(_month), style: const TextStyle(fontWeight: FontWeight.w800)),
+                child: _Pill(
+                  onTap: _pickMonth,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.calendar_month_rounded, size: 16, color: AppColors.strong(context)),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(monthLabel(_month),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      ),
+                      const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.muted),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
-              IconButton.filledTonal(
+              _Pill(
                 tooltip: 'ខែបន្ទាប់',
-                onPressed: () => _setMonth(shiftMonth(_month, 1)),
-                icon: const Icon(Icons.chevron_right_rounded),
+                onTap: () => _setMonth(shiftMonth(_month, 1)),
+                child: const Icon(Icons.chevron_right_rounded, size: 20),
               ),
               const SizedBox(width: 8),
-              IconButton.filledTonal(
-                tooltip: 'រាប់តាម: ${_dateFields.firstWhere((o) => o.value == _dateField).label}',
-                onPressed: _pickField,
-                icon: Badge(
-                  isLabelVisible: _dateField != 'created_date',
-                  smallSize: 8,
-                  child: const Icon(Icons.tune_rounded),
+              _Pill(
+                tooltip: 'រាប់តាម',
+                onTap: _pickField,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_dateFields.firstWhere((o) => o.value == _dateField).label,
+                        style: const TextStyle(fontSize: 13)),
+                    const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.muted),
+                  ],
                 ),
               ),
             ],
@@ -167,7 +181,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             onRefresh: () => _load(force: true),
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
               children: [
                 if (_error.isNotEmpty && data == null)
                   ErrorState(_error, onRetry: () => _load(force: true))
@@ -186,7 +200,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     onHand: asInt(transfers['on_hand']),
                     onTap: canIn ? () => context.go('/document/in') : null,
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 20),
 
                   // ----- the selected month -----
                   _SectionTitle('សង្ខេបប្រចាំខែ', trailing: monthLabel(_month)),
@@ -246,7 +260,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     value: asInt(transfers['returned_to_me_this_month']),
                     sub: 'ឯកសារដែលត្រូវបានរុញត្រឡប់មកខ្ញុំ',
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 20),
 
                   // ----- charts -----
                   _SectionTitle('ស្ថិតិ'),
@@ -281,7 +295,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 20),
 
                   _NewDocumentsCard(month: _month, dateField: _dateField, refreshKey: _refreshKey),
                 ],
@@ -363,17 +377,17 @@ class _HeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      borderRadius: BorderRadius.circular(26),
+      borderRadius: BorderRadius.circular(16),
       clipBehavior: Clip.antiAlias,
       color: Colors.transparent,
       child: Ink(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.primaryDark, AppColors.primary]),
+          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.primaryDark, AppColors.pressed]),
         ),
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(22),
+            padding: const EdgeInsets.all(18),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -410,37 +424,37 @@ class _Tile extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final chip = Container(
-      width: 42,
-      height: 42,
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
-      child: Icon(icon, size: 22, color: color),
+      width: 26,
+      height: 26,
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+      child: Icon(icon, size: 15, color: color),
     );
-    final texts = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: t.labelLarge?.copyWith(color: AppColors.muted, fontWeight: FontWeight.w600)),
-        if (sub != null) ...[
-          const SizedBox(height: 2),
-          Text(sub!, maxLines: 2, overflow: TextOverflow.ellipsis, style: t.bodySmall?.copyWith(color: AppColors.muted)),
-        ],
-      ],
-    );
-    final number = Text(formatNumber(value), style: t.headlineMedium?.copyWith(fontWeight: FontWeight.w800));
+    final labelText = Text(label,
+        maxLines: 1, overflow: TextOverflow.ellipsis, style: t.bodySmall?.copyWith(color: AppColors.muted, fontSize: 12.5));
+    final subText = sub == null
+        ? null
+        : Text(sub!, maxLines: 2, overflow: TextOverflow.ellipsis, style: t.bodySmall?.copyWith(color: AppColors.muted, fontSize: 11.5));
+    final number = Text(formatNumber(value), style: t.headlineMedium?.copyWith(fontWeight: FontWeight.w700, fontSize: 28, height: 1.3));
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: Theme.of(context).cardTheme.color,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: wide
           ? Row(
               children: [
                 chip,
-                const SizedBox(width: 14),
-                Expanded(child: texts),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [labelText, if (subText != null) subText],
+                  ),
+                ),
                 const SizedBox(width: 10),
                 number,
               ],
@@ -448,14 +462,44 @@ class _Tile extends StatelessWidget {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                chip,
-                const SizedBox(height: 14),
+                Row(children: [Expanded(child: labelText), const SizedBox(width: 6), chip]),
                 number,
-                const SizedBox(height: 4),
-                texts,
+                if (subText != null) subText,
               ],
             ),
     );
+  }
+}
+
+/// Outlined 36px control used in the header (month, count-by).
+class _Pill extends StatelessWidget {
+  const _Pill({required this.child, required this.onTap, this.tooltip});
+
+  final Widget child;
+  final VoidCallback onTap;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final pill = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          height: 36,
+          constraints: const BoxConstraints(minWidth: 36),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Theme.of(context).colorScheme.outline),
+          ),
+          child: child,
+        ),
+      ),
+    );
+    return tooltip == null ? pill : Tooltip(message: tooltip!, child: pill);
   }
 }
 
