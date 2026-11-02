@@ -30,6 +30,9 @@ class UserListPage extends ConsumerWidget {
         // a deep link for everybody except a super admin account
         if (_roleName(row) != Role.superAdmin && row['is_super_admin'] != true)
           RowAction('បង្កើត Link ចូល (Deep link)', Icons.link_rounded, (ctx, ref) => _link(ctx, ref, row)),
+        // Big Boss only: who may send documents to him
+        if (_roleName(row) == Role.boss)
+          RowAction('អ្នកអាចផ្ញើមកថ្នាក់ដឹកនាំ', Icons.how_to_reg_rounded, (ctx, ref) => _senders(ctx, ref, row)),
         RowAction('កំណត់ពាក្យសម្ងាត់ថ្មី', Icons.key_rounded, (ctx, ref) => _reset(ctx, ref, row)),
       ],
       fields: [
@@ -73,6 +76,143 @@ class UserListPage extends ConsumerWidget {
   }
 
   static String _roleName(Json row) => row['role'] is String ? s(row['role']) : s(asObj(row['role'])['name']);
+
+  /// Big Boss: choose the users who may send / forward a document to him.
+  static Future<void> _senders(BuildContext context, WidgetRef ref, Json row) async {
+    final raw = row['allowed_sender_ids'];
+    final picked = <String>{
+      if (raw is List) for (final x in raw) idOf(x),
+    }..removeWhere((e) => e.isEmpty);
+    final search = TextEditingController();
+    List<Json> users = [];
+    String error = '';
+    bool loading = true;
+    bool saving = false;
+    bool started = false;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) {
+          if (!started) {
+            started = true;
+            ref.read(apiProvider).allUsers().then((res) {
+              users = [
+                for (final u in asList(res['data']))
+                  if (_roleName(u) != Role.boss && s(u['_id']) != s(row['_id'])) asObj(u),
+              ];
+              if (ctx.mounted) setState(() => loading = false);
+            }).catchError((Object e) {
+              if (ctx.mounted) {
+                setState(() {
+                  error = e.toString();
+                  loading = false;
+                });
+              }
+            });
+          }
+          final kw = search.text.trim().toLowerCase();
+          final shown = [
+            for (final u in users)
+              if (kw.isEmpty ||
+                  '${personName(u)} ${s(u['email'])} ${s(asObj(u['office_id'])['name'])}'.toLowerCase().contains(kw))
+                u,
+          ];
+          return AlertDialog(
+            title: const Text('អ្នកអាចផ្ញើមកថ្នាក់ដឹកនាំ'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${personName(row)} (${s(row['email'])})', style: const TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: search,
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search_rounded),
+                      hintText: 'ស្វែងរកឈ្មោះ អ៊ីមែល ឬការិយាល័យ',
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text('បានជ្រើសរើស ${picked.length} នាក់', style: const TextStyle(fontSize: 12)),
+                  Flexible(
+                    child: loading
+                        ? const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
+                        : ListView(
+                            shrinkWrap: true,
+                            children: [
+                              for (final u in shown)
+                                CheckboxListTile(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  controlAffinity: ListTileControlAffinity.leading,
+                                  value: picked.contains(s(u['_id'])),
+                                  onChanged: saving
+                                      ? null
+                                      : (v) => setState(() {
+                                            if (v == true) {
+                                              picked.add(s(u['_id']));
+                                            } else {
+                                              picked.remove(s(u['_id']));
+                                            }
+                                          }),
+                                  title: Text(personName(u)),
+                                  subtitle: Text(
+                                    [s(u['email']), s(asObj(u['office_id'])['name'])].where((e) => e.isNotEmpty).join(' · '),
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                              if (shown.isEmpty)
+                                const Padding(padding: EdgeInsets.all(16), child: Text('រកមិនឃើញអ្នកប្រើប្រាស់')),
+                            ],
+                          ),
+                  ),
+                  if (error.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(error, style: const TextStyle(color: Colors.red)),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: saving ? null : () => Navigator.pop(ctx), child: const Text('បោះបង់')),
+              FilledButton(
+                onPressed: saving || loading
+                    ? null
+                    : () async {
+                        setState(() {
+                          saving = true;
+                          error = '';
+                        });
+                        try {
+                          final res = await ref.read(apiProvider).users.update(s(row['_id']), {
+                            'allowed_sender_ids': picked.toList(),
+                          });
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (context.mounted) {
+                            showSnack(context, s(res['message']).isNotEmpty ? s(res['message']) : 'បានរក្សាទុកបញ្ជីអ្នកអាចផ្ញើ!');
+                          }
+                        } catch (e) {
+                          setState(() {
+                            error = e.toString();
+                            saving = false;
+                          });
+                        }
+                      },
+                child: Text(saving ? 'កំពុងរក្សាទុក...' : 'រក្សាទុក'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    search.dispose();
+  }
 
   /// Admin: make a new deep link for this user. The link is shown only once.
   static Future<void> _link(BuildContext context, WidgetRef ref, Json row) async {
