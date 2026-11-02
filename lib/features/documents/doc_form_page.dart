@@ -320,18 +320,28 @@ class _DocFormPageState extends ConsumerState<DocFormPage> {
           ].where((e) => e.isNotEmpty).toList();
 
     return Scaffold(
-      appBar: AppBar(title: Text(_isEdit ? 'កែប្រែឯកសារចេញ' : 'ឯកសារចេញថ្មី')),
+      appBar: AppBar(
+        leading: IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => context.pop()),
+        title: Text(_isEdit ? 'កែប្រែឯកសារចេញ' : 'ឯកសារចេញថ្មី'),
+      ),
       bottomNavigationBar: _locked
           ? null
           : SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                 child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 50),
+                    backgroundColor: AppColors.isDark(context) ? AppColors.darkAccent : AppColors.primaryDark,
+                    foregroundColor: AppColors.isDark(context) ? const Color(0xFF06281C) : Colors.white,
+                  ),
                   onPressed: _busy ? null : _submit,
-                  icon: const Icon(Icons.save_outlined),
+                  icon: Icon(_toOffice != null || _toUserId.isNotEmpty ? Icons.send_rounded : Icons.save_outlined),
                   label: Text(_saving
                       ? (_uploadPct != null ? 'កំពុង upload ${(_uploadPct! * 100).round()}%' : 'កំពុងរក្សាទុក...')
-                      : 'រក្សាទុក'),
+                      : (_toOffice != null || _toUserId.isNotEmpty
+                          ? 'ផ្ញើ'
+                          : (_isEdit ? 'រក្សាទុក' : 'រក្សាទុកព្រាង'))),
                 ),
               ),
             ),
