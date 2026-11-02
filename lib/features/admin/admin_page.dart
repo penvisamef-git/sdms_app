@@ -44,7 +44,7 @@ class AdminPage extends StatelessWidget {
               child: ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 leading: CircleAvatar(
-                  backgroundColor: AppColors.soft,
+                  backgroundColor: AppColors.softOf(context),
                   child: Icon(e.icon, color: AppColors.primary),
                 ),
                 title: Text(e.title, style: const TextStyle(fontWeight: FontWeight.w700)),

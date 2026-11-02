@@ -82,7 +82,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [AppColors.primaryDark, AppColors.primary, Color(0xFF0FA39B)],
+            colors: [AppColors.primaryDeep, AppColors.primaryDark, AppColors.pressed],
           ),
         ),
         child: SafeArea(
@@ -98,8 +98,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       width: 76,
                       height: 76,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(24),
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: AppColors.gold, width: 1.5),
                       ),
                       child: const Icon(Icons.description_rounded, color: Colors.white, size: 40),
                     ),
@@ -109,7 +110,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       textAlign: TextAlign.center,
                       style: t.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 8),
+                    Container(width: 44, height: 3, decoration: BoxDecoration(color: AppColors.gold, borderRadius: BorderRadius.circular(2))),
+                    const SizedBox(height: 8),
                     Text(
                       'SDMS',
                       style: t.titleMedium?.copyWith(color: Colors.white70, letterSpacing: 4),

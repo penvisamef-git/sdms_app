@@ -344,7 +344,7 @@ class _DocFormPageState extends ConsumerState<DocFormPage> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Card(
-                      color: _locked ? AppColors.warn.withValues(alpha: 0.1) : AppColors.soft,
+                      color: _locked ? AppColors.warn.withValues(alpha: 0.1) : AppColors.softOf(context),
                       child: Padding(
                         padding: const EdgeInsets.all(14),
                         child: Row(
@@ -533,7 +533,7 @@ class _DocFormPageState extends ConsumerState<DocFormPage> {
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
             decoration: BoxDecoration(
-              color: AppColors.soft.withValues(alpha: 0.6),
+              color: AppColors.softOf(context).withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Row(

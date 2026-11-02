@@ -24,8 +24,8 @@ class _SkeletonState extends State<Skeleton> with SingleTickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final base = dark ? const Color(0xFF243230) : const Color(0xFFE3E9E7);
-    final shine = dark ? const Color(0xFF30403D) : const Color(0xFFF4F7F6);
+    final base = dark ? const Color(0xFF1A2C22) : const Color(0xFFE9ECEF);
+    final shine = dark ? const Color(0xFF243B2E) : const Color(0xFFF6F8FA);
     return ExcludeSemantics(
       child: AnimatedBuilder(
         animation: _c,

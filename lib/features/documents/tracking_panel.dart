@@ -29,11 +29,11 @@ class TrackingPanel extends StatelessWidget {
 
     Widget tile(String label, String value) => Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(color: AppColors.soft, borderRadius: BorderRadius.circular(14)),
+          decoration: BoxDecoration(color: AppColors.softOf(context), borderRadius: BorderRadius.circular(14)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(value, style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800, color: AppColors.primaryDark)),
+              Text(value, style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800, color: AppColors.strong(context))),
               Text(label, style: t.bodySmall?.copyWith(color: AppColors.muted)),
             ],
           ),
@@ -196,7 +196,7 @@ class _TimelineItem extends StatelessWidget {
         margin: const EdgeInsets.only(top: 6),
         padding: const EdgeInsets.all(10),
         width: double.infinity,
-        decoration: BoxDecoration(color: AppColors.soft, borderRadius: BorderRadius.circular(10)),
+        decoration: BoxDecoration(color: AppColors.softOf(context), borderRadius: BorderRadius.circular(10)),
         child: Text(text, style: Theme.of(context).textTheme.bodySmall),
       );
 }

@@ -90,7 +90,7 @@ class _FileViewerPageState extends State<FileViewerPage> {
         Uri.parse(url),
         key: ValueKey('pdf-$_version-$url'),
         params: PdfViewerParams(
-          backgroundColor: const Color(0xFFE8ECEB),
+          backgroundColor: const Color(0xFFE9ECEF),
           errorBannerBuilder: (context, error, stackTrace, documentRef) => ErrorState(
             'មិនអាចបើក PDF បានទេ',
             onRetry: () => _external(context),

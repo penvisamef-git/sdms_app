@@ -16,9 +16,8 @@ class TabHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final dark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: dark ? const Color(0xFF172120) : Colors.white,
+      color: AppColors.card(context),
       elevation: 0,
       child: Container(
         decoration: BoxDecoration(

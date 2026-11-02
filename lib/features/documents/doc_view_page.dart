@@ -669,7 +669,7 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
                     margin: EdgeInsets.only(bottom: i == refs.length - 1 ? 0 : 12),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.soft.withValues(alpha: 0.6),
+                      color: AppColors.softOf(context).withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Column(
