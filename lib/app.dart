@@ -20,7 +20,8 @@ class SdmsApp extends ConsumerStatefulWidget {
 class _SdmsAppState extends ConsumerState<SdmsApp> with WidgetsBindingObserver {
   DateTime _warmAt = DateTime.fromMillisecondsSinceEpoch(0);
 
-  // personal deep link:  sdms://auto-login?t=<token>
+  // personal deep link:  https://sdms-kh.web.app/auto-login#t=<token>  (App Link / Universal Link)
+  //                  or  sdms://auto-login?t=<token>
   final _appLinks = AppLinks();
   StreamSubscription<Uri>? _linkSub;
   String _lastLinkToken = '';
@@ -51,11 +52,26 @@ class _SdmsAppState extends ConsumerState<SdmsApp> with WidgetsBindingObserver {
     _linkSub = _appLinks.uriLinkStream.listen(_onLink, onError: (_) {});
   }
 
+  /// The token of a personal link, or null when [uri] is some other link.
+  /// Accepts https://sdms-kh.web.app/auto-login#t=<token> and sdms://auto-login?t=<token>.
+  static String? _tokenOf(Uri uri) {
+    final custom = uri.scheme == 'sdms' && uri.host == 'auto-login';
+    final web = uri.scheme == 'https' && uri.host == 'sdms-kh.web.app' && uri.path.startsWith('/auto-login');
+    if (!custom && !web) return null;
+    final query = uri.queryParameters['t'];
+    if (query != null && query.isNotEmpty) return query;
+    if (uri.fragment.isEmpty) return null;
+    try {
+      return Uri.splitQueryString(uri.fragment)['t'];
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _onLink(Uri uri) async {
-    if (uri.scheme != 'sdms' || uri.host != 'auto-login') return;
-    final token = uri.queryParameters['t'] ?? '';
+    final token = _tokenOf(uri);
     // the same link can be delivered twice (initial link + stream): use it once
-    if (token.isEmpty || token == _lastLinkToken) return;
+    if (token == null || token.isEmpty || token == _lastLinkToken) return;
     _lastLinkToken = token;
     final messenger = scaffoldMessengerKey.currentState;
     try {

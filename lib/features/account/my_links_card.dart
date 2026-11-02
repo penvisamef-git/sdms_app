@@ -125,21 +125,21 @@ class _MyLinksCardState extends ConsumerState<MyLinksCard> {
                 ] else ...[
                   const Text('Link ថ្មី (បង្ហាញតែម្តងនេះប៉ុណ្ណោះ — សូមចម្លងឥឡូវ)', style: TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 10),
-                  const Text('Web', style: TextStyle(fontSize: 12)),
+                  const Text('Link តែមួយ (Web + App) — ផ្ញើ Link នេះ', style: TextStyle(fontSize: 12)),
                   SelectableText(webUrl, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
                   TextButton.icon(
                     onPressed: () => copy(ctx, webUrl),
                     icon: const Icon(Icons.copy_rounded, size: 16),
-                    label: const Text('ចម្លង Link Web'),
+                    label: const Text('ចម្លង Link (Web + App)'),
                   ),
                   if (appUrl.isNotEmpty) ...[
                     const SizedBox(height: 6),
-                    const Text('App', style: TextStyle(fontSize: 12)),
+                    const Text('Link បម្រុងសម្រាប់ App (sdms://)', style: TextStyle(fontSize: 12)),
                     SelectableText(appUrl, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
                     TextButton.icon(
                       onPressed: () => copy(ctx, appUrl),
                       icon: const Icon(Icons.copy_rounded, size: 16),
-                      label: const Text('ចម្លង Link App'),
+                      label: const Text('ចម្លង Link បម្រុង'),
                     ),
                   ],
                 ],

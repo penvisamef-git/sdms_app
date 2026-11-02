@@ -33,6 +33,14 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="sdms" android:host="auto-login"/>
             </intent-filter>
+            <!-- Verified App Link: https://sdms-kh.web.app/auto-login#t=<token> opens the app directly.
+                 Needs https://sdms-kh.web.app/.well-known/assetlinks.json (see sdms/scripts/set-app-links.js) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="sdms-kh.web.app" android:pathPrefix="/auto-login"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
