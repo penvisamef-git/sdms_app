@@ -20,9 +20,12 @@ const _pageSize = 15;
 /// box "in"  : transfers sent to me / my office  (GET /document-transfer/inbox)
 /// box "out" : documents my office created        (GET /document?box=out)
 class DocListPage extends ConsumerStatefulWidget {
-  const DocListPage({super.key, required this.box});
+  const DocListPage({super.key, required this.box, this.boss});
 
   final String box;
+
+  /// Big Boss only: 'inbox' = waiting for him · 'history' = already handled. null = normal user.
+  final String? boss;
 
   @override
   ConsumerState<DocListPage> createState() => _DocListPageState();
@@ -43,6 +46,7 @@ class _DocListPageState extends ConsumerState<DocListPage> {
   String _status = '';
 
   bool get _isIn => widget.box == 'in';
+  bool get _isBoss => widget.boss != null;
 
   @override
   void initState() {
@@ -69,7 +73,11 @@ class _DocListPageState extends ConsumerState<DocListPage> {
     }
     final params = <String, dynamic>{'page': _page, 'limit': _pageSize};
     if (_isIn) {
-      if (_status.isNotEmpty) params['status'] = _status;
+      if (_isBoss) {
+        params['status'] = widget.boss == 'inbox' ? 'pending,received' : 'returned,forwarded,done';
+      } else if (_status.isNotEmpty) {
+        params['status'] = _status;
+      }
     } else {
       params['box'] = 'out';
       if (_search.isNotEmpty) {
@@ -164,7 +172,7 @@ class _DocListPageState extends ConsumerState<DocListPage> {
       body: Column(
         children: [
           TabHeader(
-            title: _isIn ? 'ឯកសារចូល' : 'ឯកសារចេញ',
+            title: widget.boss == 'history' ? 'ប្រវត្តិ' : (_isIn ? 'ឯកសារចូល' : 'ឯកសារចេញ'),
             subtitle: _total > 0 ? '$_total ឯកសារ' : null,
             bottom: Row(
               children: [
@@ -188,7 +196,7 @@ class _DocListPageState extends ConsumerState<DocListPage> {
                     ),
                   ),
                 ),
-                if (_isIn) ...[
+                if (_isIn && !_isBoss) ...[
                   const SizedBox(width: 8),
                   IconButton.filledTonal(
                     tooltip: 'ស្ថានភាព',
@@ -237,7 +245,7 @@ class _DocListPageState extends ConsumerState<DocListPage> {
         children: [
           EmptyState(_search.isNotEmpty || _status.isNotEmpty
               ? 'រកមិនឃើញទិន្នន័យដែលត្រូវនឹងការស្វែងរក'
-              : 'មិនទាន់មានឯកសារ'),
+              : (widget.boss == 'inbox' ? 'មិនមានឯកសារត្រូវពិនិត្យទេ' : 'មិនទាន់មានឯកសារ')),
         ],
       );
     }
@@ -262,9 +270,13 @@ class _DocListPageState extends ConsumerState<DocListPage> {
   Widget _inTile(Json tr) {
     final d = asObj(tr['document_id']);
     final st = transferStatus[s(tr['status'])];
-    final from = s(asObj(tr['from_office_id'])['name']).isNotEmpty
-        ? s(asObj(tr['from_office_id'])['name'])
-        : s(asObj(d['office_id_open'])['name']);
+    // the Big Boss cares about WHO sent it
+    final fromUser = _isBoss ? personName(asObj(tr['from_user_id'])) : '';
+    final from = fromUser.isNotEmpty
+        ? fromUser
+        : s(asObj(tr['from_office_id'])['name']).isNotEmpty
+            ? s(asObj(tr['from_office_id'])['name'])
+            : s(asObj(d['office_id_open'])['name']);
     return _DocCard(
       code: s(d['code_of_document']),
       number: s(d['number_document']),

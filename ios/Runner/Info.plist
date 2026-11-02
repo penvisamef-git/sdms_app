@@ -66,6 +66,21 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>kh.gov.mef.sdmsApp</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>sdms</string>
+			</array>
+		</dict>
+	</array>
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
 	<key>NSCameraUsageDescription</key>
 	<string>ប្រើកាមេរ៉ាដើម្បីថតឯកសារភ្ជាប់</string>
 	<key>NSPhotoLibraryUsageDescription</key>

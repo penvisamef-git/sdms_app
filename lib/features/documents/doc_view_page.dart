@@ -8,11 +8,13 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/format.dart';
 import '../../core/json.dart';
+import '../../core/permission.dart';
 import '../../core/theme.dart';
 import '../../data/api_client.dart';
 import '../../data/cloudinary_upload.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
+import '../../widgets/confirm_password_dialog.dart';
 import '../../widgets/skeleton.dart';
 import '../../widgets/org_tree_picker.dart';
 import '../../widgets/receiver_card.dart';
@@ -85,6 +87,7 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
   /// Org tree / user list / flows are big and only needed to pick receivers: load them only when this
   /// user can forward or send (not for every document that is just opened to read).
   void _ensureOptions() {
+    if (_isBoss) return; // the Big Boss only returns a document: no receivers to pick
     if (_optionsLoaded || _optionsLoading) return;
     if (!(_canAct || (_isOwner && !_alreadySent))) return;
     _loadOptions();
@@ -148,8 +151,23 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
     return pick('pending') ?? pick('received') ?? pick('forwarded') ?? (rows.isEmpty ? null : rows.last);
   }
 
+  bool get _isBoss => isBoss(_me);
+
   bool get _isOwner =>
-      _doc != null && (_me?['is_super_admin'] == true || idOf(_doc!['office_id_open']) == _myOfficeId);
+      !_isBoss && _doc != null && (_me?['is_super_admin'] == true || idOf(_doc!['office_id_open']) == _myOfficeId);
+
+  /// Run an API call; when the server wants the password again (deep-link session), ask once and retry.
+  Future<T> _withConfirm<T>(Future<T> Function() fn) async {
+    try {
+      return await fn();
+    } on ApiException catch (e) {
+      if (!e.needPassword) rethrow;
+      if (!mounted) rethrow;
+      final ok = await showConfirmPasswordDialog(context, ref.read(apiProvider));
+      if (!ok) throw ApiException('បានបោះបង់ការបញ្ជាក់ពាក្យសម្ងាត់');
+      return fn();
+    }
+  }
 
   bool get _canAct => s(_mine?['status']) == 'received';
   bool get _isPending => s(_mine?['status']) == 'pending';
@@ -214,12 +232,40 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
     final ok = await confirmDialog(context, title: 'រុញឯកសារត្រឡប់?', message: 'ឯកសារនឹងត្រូវផ្ញើត្រឡប់ទៅអ្នកផ្ញើវិញ។');
     if (!ok) return;
     _run(
-      () => ref.read(apiProvider).returnBack(s(_mine!['_id']), {
-        'note': _note.text,
-        if (_flowId.isNotEmpty) 'status_of_process_id': _flowId,
-      }),
+      () => _withConfirm(() => ref.read(apiProvider).returnBack(s(_mine!['_id']), {
+            'note': _note.text,
+            if (_flowId.isNotEmpty) 'status_of_process_id': _flowId,
+          })),
       'បានរុញត្រឡប់!',
     );
+  }
+
+  /// Big Boss: comment + return to the user who sent it, then back to the inbox.
+  Future<void> _returnBoss() async {
+    final to = personName(asObj(_doc?['send_from_user_id']));
+    final ok = await confirmDialog(
+      context,
+      title: 'ត្រឡប់ឯកសារ?',
+      message: 'ឯកសារនឹងត្រូវផ្ញើត្រឡប់ទៅ ${to.isEmpty ? 'អ្នកផ្ញើ' : to}។',
+    );
+    if (!ok || !mounted) return;
+    setState(() {
+      _actionError = '';
+      _busy = true;
+    });
+    try {
+      final res = await _withConfirm(
+        () => ref.read(apiProvider).returnBack(s(_mine!['_id']), {'note': _note.text}),
+      );
+      if (!mounted) return;
+      ref.read(apiClientProvider).clearCache();
+      showSnack(context, s(res['message']).isNotEmpty ? s(res['message']) : 'បានត្រឡប់ឯកសារទៅអ្នកផ្ញើ!');
+      context.pop();
+    } catch (e) {
+      if (mounted) setState(() => _actionError = e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _finish() async {
@@ -292,7 +338,7 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
       final refFileIndex = refIndex >= 0
           ? asList(refList[refIndex]['files']).indexWhere((f) => s(f['public_id']) == oldId)
           : -1;
-      final res = await api.documentReplaceFile(widget.id, {'public_id': oldId, 'file': saved});
+      final res = await _withConfirm(() => api.documentReplaceFile(widget.id, {'public_id': oldId, 'file': saved}));
       final d = asObj(res['data']);
       var fresh = asObj(res['file']);
       if (s(fresh['url']).isEmpty) {
@@ -385,7 +431,7 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     children: [
                       if (_isPending) _pendingBanner(),
-                      if (_canAct) _actCard(),
+                      if (_canAct) (_isBoss ? _bossActCard(doc!) : _actCard()),
                       if (_isOwner && !_canAct && !_isPending && !_alreadySent) _sendCard(),
                       const SizedBox(height: 4),
                       _senderCard(doc!),
@@ -514,6 +560,39 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _bossActCard(Json doc) {
+    final to = personName(asObj(doc['send_from_user_id']));
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('មតិ និងការត្រឡប់ឯកសារ',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 6),
+              Text(
+                'បើកឯកសារខាងក្រោម ដើម្បីគូស សរសេរ ឬចុះហត្ថលេខា រួចរក្សាទុក។ បន្ទាប់មកសរសេរមតិ ហើយត្រឡប់ទៅ ${to.isEmpty ? 'អ្នកផ្ញើ' : to}។',
+                style: const TextStyle(color: AppColors.muted),
+              ),
+              const SizedBox(height: 12),
+              _noteField('មតិ / ការណែនាំ'),
+              _errorLine(),
+              const SizedBox(height: 14),
+              FilledButton.icon(
+                onPressed: _busy ? null : _returnBoss,
+                icon: const Icon(Icons.undo_rounded),
+                label: Text(_busy ? 'កំពុងដំណើរការ...' : 'ត្រឡប់ទៅអ្នកផ្ញើ'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

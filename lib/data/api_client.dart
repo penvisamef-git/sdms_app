@@ -9,10 +9,13 @@ import '../core/json.dart';
 
 /// An error with the message the server sent (already in Khmer for most cases).
 class ApiException implements Exception {
-  ApiException(this.message, {this.status});
+  ApiException(this.message, {this.status, this.needPassword = false});
 
   final String message;
   final int? status;
+
+  /// The server wants the password again (a session opened with a deep link signs / returns a document).
+  final bool needPassword;
 
   @override
   String toString() => message;
@@ -270,7 +273,11 @@ class ApiClient {
 
     if (status < 200 || status >= 300 || json['success'] == false) {
       final msg = s(json['message']);
-      throw ApiException(msg.isNotEmpty ? msg : 'Request failed ($status)', status: status);
+      throw ApiException(
+        msg.isNotEmpty ? msg : 'Request failed ($status)',
+        status: status,
+        needPassword: json['need_password'] == true,
+      );
     }
     return json;
   }

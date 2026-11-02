@@ -34,10 +34,17 @@ final routerProvider = Provider<GoRouter>((ref) {
 
     if (!auth.ready) return path == '/splash' ? null : '/splash';
     if (!auth.loggedIn) return path == '/login' ? null : '/login';
-    if (path == '/login' || path == '/splash' || path == '/') return '/home';
+    final user = auth.user;
+    if (path == '/login' || path == '/splash' || path == '/') return homePathFor(user);
+
+    // Big Boss: only his inbox, history, account and the document review page
+    if (isBoss(user)) {
+      const allowed = ['/inbox', '/history', '/account', '/file', '/document/in/view/'];
+      return allowed.any(path.startsWith) ? null : '/inbox';
+    }
+    if (path == '/inbox' || path == '/history') return '/home';
 
     // role rules (same as the web menu)
-    final user = auth.user;
     if (path.startsWith('/document/in') && !canAccess(user, Access.docIn)) return '/home';
     if (path.startsWith('/document/out') && !canAccess(user, Access.docOut)) return '/home';
     if (path.startsWith('/admin') && !canAccess(user, Access.superAdmin)) return '/home';
@@ -60,6 +67,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state, child) => AppShell(location: state.matchedLocation, child: child),
         routes: [
           GoRoute(path: '/home', builder: (_, __) => const HomePage()),
+          GoRoute(path: '/inbox', builder: (_, __) => const DocListPage(box: 'in', boss: 'inbox')),
+          GoRoute(path: '/history', builder: (_, __) => const DocListPage(box: 'in', boss: 'history')),
           GoRoute(path: '/document/in', builder: (_, __) => const DocListPage(box: 'in')),
           GoRoute(path: '/document/out', builder: (_, __) => const DocListPage(box: 'out')),
           GoRoute(path: '/admin', builder: (_, __) => const AdminPage()),

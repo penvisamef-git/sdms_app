@@ -47,6 +47,14 @@ class Api {
   Future<Json> login(String email, String password) =>
       client.post('/auth/login/app', body: {'email': email, 'password': password}, skipAuth: true);
 
+  /// Sign in with a personal deep link (sdms://auto-login?t=<token>).
+  Future<Json> exchangeLink(String token) =>
+      client.post('/auth/link/exchange', body: {'token': token, 'client': 'app'}, skipAuth: true);
+
+  /// A session opened with a link must confirm the password before it signs or returns a document (10 minutes).
+  Future<Json> confirmPassword(String password) =>
+      client.post('/auth/confirm-password', body: {'password': password});
+
   /// Ends this device's session on the server (older servers do not have it: ignore errors).
   Future<void> logout() async {
     try {

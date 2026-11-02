@@ -26,7 +26,12 @@ class AppShell extends ConsumerWidget {
     final user = ref.watch(authProvider).user;
 
     final tabs = <_Tab>[
-      const _Tab('ទំព័រដើម', Icons.dashboard_outlined, Icons.dashboard_rounded, '/home'),
+      if (canAccess(user, Access.staff))
+        const _Tab('ទំព័រដើម', Icons.dashboard_outlined, Icons.dashboard_rounded, '/home'),
+      if (canAccess(user, Access.boss)) ...const [
+        _Tab('ឯកសារចូល', Icons.move_to_inbox_outlined, Icons.move_to_inbox_rounded, '/inbox'),
+        _Tab('ប្រវត្តិ', Icons.history_outlined, Icons.history_rounded, '/history'),
+      ],
       if (canAccess(user, Access.docIn))
         const _Tab('ឯកសារចូល', Icons.move_to_inbox_outlined, Icons.move_to_inbox_rounded, '/document/in'),
       if (canAccess(user, Access.docOut))

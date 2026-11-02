@@ -31,9 +31,12 @@ final apiProvider = Provider<Api>((ref) => Api(ref.watch(apiClientProvider)));
 final authProvider = NotifierProvider<AuthController, AuthState>(AuthController.new);
 
 class AuthController extends Notifier<AuthState> {
+  // finished when the saved login has been read (a deep link opened at start-up waits for it)
+  Future<void> _ready = Future.value();
+
   @override
   AuthState build() {
-    _load();
+    _ready = _load();
     return const AuthState();
   }
 
@@ -50,6 +53,17 @@ class AuthController extends Notifier<AuthState> {
 
   Future<void> login(String email, String password) async {
     final res = await ref.read(apiProvider).login(email.trim(), password);
+    await _accept(res);
+  }
+
+  /// Sign in with the token of a personal deep link (sdms://auto-login?t=<token>).
+  Future<void> loginWithLink(String token) async {
+    await _ready;
+    final res = await ref.read(apiProvider).exchangeLink(token);
+    await _accept(res);
+  }
+
+  Future<void> _accept(Json res) async {
     final data = asObj(res['data']);
     if (s(data['access_token']).isEmpty) throw ApiException('ចូលគណនីមិនបានសម្រេច');
     // never keep a password hash on the phone

@@ -7,11 +7,14 @@ class Role {
   static const String docOut = 'អ្នកគ្រប់គ្រងឯកសារចេញ';
   static const String docBoth = 'អ្នកគ្រប់គ្រងឯកសារចេញ/ចូល';
 
-  static const List<String> all = [superAdmin, docIn, docOut, docBoth];
+  /// Big Boss (only one): inbox + history + my account. Receives, signs, comments and returns documents.
+  static const String boss = 'ថ្នាក់ដឹកនាំ';
+
+  static const List<String> all = [superAdmin, docIn, docOut, docBoth, boss];
 }
 
 /// What a screen needs (same rules as the web: sdms/src/page/util/permission.js).
-enum Access { all, docIn, docOut, superAdmin }
+enum Access { all, staff, docIn, docOut, superAdmin, boss }
 
 String roleOf(Json? user) {
   if (user == null) return '';
@@ -20,12 +23,23 @@ String roleOf(Json? user) {
   return r is String ? r : s(asObj(r)['name']);
 }
 
+bool isBoss(Json? user) => roleOf(user) == Role.boss;
+
+/// Where a signed-in user starts (the Big Boss has no dashboard).
+String homePathFor(Json? user) => isBoss(user) ? '/inbox' : '/home';
+
 bool canAccess(Json? user, Access access) {
   final role = roleOf(user);
+  // the Big Boss sees his own two screens and his account, nothing else
+  if (role == Role.boss) return access == Access.boss || access == Access.all;
+  if (access == Access.boss) return false;
   if (role == Role.superAdmin) return true;
   switch (access) {
     case Access.all:
+    case Access.staff:
       return true;
+    case Access.boss:
+      return false;
     case Access.docIn:
       return role == Role.docIn || role == Role.docBoth;
     case Access.docOut:
