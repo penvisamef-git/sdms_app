@@ -289,9 +289,9 @@ class _DocListPageState extends ConsumerState<DocListPage> {
     return ListView.separated(
       controller: _scroll,
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(20, 4, 20, _isIn ? 24 : 96),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, _isIn ? 24 : 96),
       itemCount: rows.length + 1,
-      separatorBuilder: (_, i) => i < rows.length - 1 ? const Divider(height: 1) : const SizedBox.shrink(),
+      separatorBuilder: (_, i) => const SizedBox(height: 10),
       itemBuilder: (_, i) {
         if (i == rows.length) {
           if (_loading) {
@@ -378,7 +378,7 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
-/// One document row: flat, separated by hairlines (design A).
+/// One document as a card: rounded, hairline border; waiting items get a warm tint.
 class _DocCard extends StatelessWidget {
   const _DocCard({
     required this.code,
@@ -406,12 +406,18 @@ class _DocCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final meta = [if (number.isNotEmpty) 'លេខ $number', if (type.isNotEmpty) type].join(' · ');
+    final dark = AppColors.isDark(context);
+    final base = AppColors.card(context);
+    final fill = highlight ? Color.alphaBlend(AppColors.warn.withValues(alpha: dark ? 0.12 : 0.08), base) : base;
+    final edge = highlight ? AppColors.warn.withValues(alpha: 0.45) : AppColors.border(context);
     return Material(
-      color: highlight ? AppColors.warn.withValues(alpha: 0.08) : Colors.transparent,
+      color: fill,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: edge)),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
