@@ -38,7 +38,9 @@ class StatusBadge extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: c, fontWeight: FontWeight.w700),
+        style: Theme.of(
+          context,
+        ).textTheme.labelSmall?.copyWith(color: c, fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -79,9 +81,19 @@ class SectionCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(title!, style: t.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                          Text(
+                            title!,
+                            style: t.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                           if (subtitle != null)
-                            Text(subtitle!, style: t.bodySmall?.copyWith(color: AppColors.muted)),
+                            Text(
+                              subtitle!,
+                              style: t.bodySmall?.copyWith(
+                                color: AppColors.muted,
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -108,15 +120,22 @@ class InfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final empty = value == null || value!.trim().isEmpty;
+    // full width + left aligned, so rows line up whatever Column they are placed in
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: t.bodySmall?.copyWith(color: AppColors.muted)),
-          const SizedBox(height: 2),
-          Text(empty ? '-' : value!, style: t.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-        ],
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: t.bodySmall?.copyWith(color: AppColors.muted)),
+            const SizedBox(height: 2),
+            Text(
+              empty ? '-' : value!,
+              style: t.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -138,7 +157,11 @@ class EmptyState extends StatelessWidget {
           children: [
             Icon(icon, size: 44, color: AppColors.other),
             const SizedBox(height: 10),
-            Text(text, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.muted)),
+            Text(
+              text,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.muted),
+            ),
           ],
         ),
       ),
@@ -160,7 +183,11 @@ class ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off_outlined, size: 44, color: AppColors.danger),
+            const Icon(
+              Icons.cloud_off_outlined,
+              size: 44,
+              color: AppColors.danger,
+            ),
             const SizedBox(height: 10),
             Text(message, textAlign: TextAlign.center),
             if (onRetry != null) ...[
@@ -213,9 +240,14 @@ Future<bool> confirmDialog(
       title: Text(title),
       content: message == null ? null : Text(message),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(cancelText)),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: Text(cancelText),
+        ),
         FilledButton(
-          style: danger ? FilledButton.styleFrom(backgroundColor: AppColors.danger) : null,
+          style: danger
+              ? FilledButton.styleFrom(backgroundColor: AppColors.danger)
+              : null,
           onPressed: () => Navigator.pop(ctx, true),
           child: Text(confirmText),
         ),
