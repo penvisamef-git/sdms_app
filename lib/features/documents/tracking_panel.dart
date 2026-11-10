@@ -4,6 +4,7 @@ import '../../core/format.dart';
 import '../../core/json.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/cover_slip.dart';
 import 'doc_helpers.dart';
 
 String _place(dynamic office, dynamic user) {
@@ -216,6 +217,7 @@ class _TimelineItem extends StatelessWidget {
                     'រង់ចាំទទួល: ${formatHours(item['waiting_hours'])} · ស្ថិតនៅ: ${formatHours(item['holding_hours'])}',
                     style: t.bodySmall?.copyWith(color: AppColors.muted),
                   ),
+                  CoverSlipView(transfer: item),
                   if (s(item['note']).isNotEmpty) _note('ការណែនាំ: ${s(item['note'])}', context),
                   if (s(item['done_note']).isNotEmpty) _note('កំណត់ចំណាំបញ្ចប់: ${s(item['done_note'])}', context),
                 ],

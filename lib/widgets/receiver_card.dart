@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/json.dart';
 import '../core/theme.dart';
 import 'common.dart';
+import 'cover_slip.dart';
 import 'org_tree_picker.dart';
 import 'select_sheet.dart';
 
@@ -20,6 +21,8 @@ class ReceiverCard extends StatelessWidget {
     required this.onUserChanged,
     this.disabled = false,
     this.footer,
+    this.cover,
+    this.defaultSubject = '',
   });
 
   /// raw nodes of GET /master-data/unit-tree
@@ -33,6 +36,10 @@ class ReceiverCard extends StatelessWidget {
   final ValueChanged<String> onUserChanged;
   final bool disabled;
   final Widget? footer;
+
+  /// cover slip fields; shown when the chosen user is the Big Boss
+  final CoverControllers? cover;
+  final String defaultSubject;
 
   bool _inOffices(Json u, List<String>? offices) =>
       offices == null || offices.isEmpty || offices.contains(idOf(u['office_id']));
@@ -83,6 +90,11 @@ class ReceiverCard extends StatelessWidget {
       userName = found.isEmpty ? 'អ្នកប្រើប្រាស់' : personName(found.first);
     }
 
+    final toBoss = cover != null && isBossUser(users, userId);
+    String fromOffice = '';
+    final me = users.where((u) => s(u['_id']) == myUserId);
+    if (me.isNotEmpty) fromOffice = s(asObj(me.first['office_id'])['name']);
+
     return SectionCard(
       title: 'អ្នកទទួល',
       subtitle: 'ជ្រើសរើសអង្គភាពទទួល និង/ឬអ្នកប្រើប្រាស់ទទួលម្នាក់',
@@ -113,6 +125,16 @@ class ReceiverCard extends StatelessWidget {
                 _AddChip(label: 'អ្នកប្រើប្រាស់', onTap: disabled ? null : () => _pickUser(context, options)),
             ],
           ),
+          if (toBoss) ...[
+            const SizedBox(height: 14),
+            CoverSlipForm(
+              cover: cover!,
+              fromOffice: fromOffice,
+              toName: userName,
+              defaultSubject: defaultSubject,
+              disabled: disabled,
+            ),
+          ],
           if (footer != null) ...[const SizedBox(height: 14), footer!],
         ],
       ),

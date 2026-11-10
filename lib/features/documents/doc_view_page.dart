@@ -15,6 +15,7 @@ import '../../data/cloudinary_upload.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/confirm_password_dialog.dart';
+import '../../widgets/cover_slip.dart';
 import '../../widgets/skeleton.dart';
 import '../../widgets/org_tree_picker.dart';
 import '../../widgets/receiver_card.dart';
@@ -48,6 +49,7 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
   String _toUserId = '';
   String _flowId = '';
   final _note = TextEditingController();
+  final _cover = CoverControllers();
   bool _busy = false;
   String _actionError = '';
 
@@ -70,6 +72,7 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
   @override
   void dispose() {
     _note.dispose();
+    _cover.dispose();
     super.dispose();
   }
 
@@ -199,6 +202,7 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
         _toUserId = '';
         _flowId = '';
         _note.clear();
+        _cover.clear();
       });
       await _load();
     } catch (e) {
@@ -222,6 +226,7 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
       () => ref.read(apiProvider).forward(s(_mine!['_id']), {
         ..._receivers,
         'note': _note.text,
+        ..._cover.body(isBossUser(_users, _toUserId)),
         if (_flowId.isNotEmpty) 'status_of_process_id': _flowId,
       }),
       'បានបញ្ជូនបន្ត!',
@@ -276,7 +281,8 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
 
   void _send() {
     if (!_needReceiver()) return;
-    _run(() => ref.read(apiProvider).documentSend(widget.id, {..._receivers, 'note': _note.text}), 'បានផ្ញើ!');
+    _run(() => ref.read(apiProvider).documentSend(widget.id, {..._receivers, 'note': _note.text, ..._cover.body(isBossUser(_users, _toUserId))}),
+        'បានផ្ញើ!');
   }
 
 
@@ -467,6 +473,7 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
               Text('ឯកសារនេះកំពុងរង់ចាំការទទួលពីអ្នក',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
               if (note.isNotEmpty) ...[const SizedBox(height: 6), Text('ការណែនាំ: $note')],
+              CoverSlipView(transfer: _mine),
               const SizedBox(height: 6),
               const Text('សូមទទួលឯកសារជាមុនសិន ទើបអាចបញ្ជូនបន្ត រុញត្រឡប់ ឬបញ្ចប់បាន។',
                   style: TextStyle(color: AppColors.muted)),
@@ -507,6 +514,8 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
           disabled: _busy,
           onOfficeChanged: (v) => setState(() => _toOffice = v),
           onUserChanged: (v) => setState(() => _toUserId = v),
+          cover: _cover,
+          defaultSubject: s(_doc?['objective']),
           footer: footer,
         ),
       );
@@ -582,6 +591,7 @@ class _DocViewPageState extends ConsumerState<DocViewPage> {
                 'បើកឯកសារខាងក្រោម ដើម្បីគូស សរសេរ ឬចុះហត្ថលេខា រួចរក្សាទុក។ បន្ទាប់មកសរសេរមតិ ហើយត្រឡប់ទៅ ${to.isEmpty ? 'អ្នកផ្ញើ' : to}។',
                 style: const TextStyle(color: AppColors.muted),
               ),
+              CoverSlipView(transfer: _mine),
               const SizedBox(height: 12),
               _noteField('មតិ / ការណែនាំ'),
               _errorLine(),

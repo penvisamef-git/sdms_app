@@ -9,6 +9,7 @@ import '../../data/cloudinary_upload.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/date_field.dart';
+import '../../widgets/cover_slip.dart';
 import '../../widgets/file_picker_field.dart';
 import '../../widgets/org_tree_picker.dart';
 import '../../widgets/receiver_card.dart';
@@ -67,6 +68,7 @@ class _DocFormPageState extends ConsumerState<DocFormPage> {
   final _number = TextEditingController();
   final _note = TextEditingController();
   final _sendNote = TextEditingController();
+  final _cover = CoverControllers();
   String _dateSign = '';
   String _dateIn = '';
   String _dateReg = '';
@@ -121,6 +123,7 @@ class _DocFormPageState extends ConsumerState<DocFormPage> {
     _number.dispose();
     _note.dispose();
     _sendNote.dispose();
+    _cover.dispose();
     for (final r in _refs) {
       r.dispose();
     }
@@ -267,6 +270,7 @@ class _DocFormPageState extends ConsumerState<DocFormPage> {
 
       final offices = _toOffice?.offices ?? <String>[];
       final hasReceiver = offices.isNotEmpty || _toUserId.isNotEmpty;
+      final toBoss = isBossUser(_users, _toUserId);
 
       Json res;
       if (_isEdit) {
@@ -280,6 +284,7 @@ class _DocFormPageState extends ConsumerState<DocFormPage> {
             'send_to_office_id': offices,
             'send_to_user_id': _toUserId.isEmpty ? <String>[] : [_toUserId],
             'note': _sendNote.text,
+            ..._cover.body(toBoss),
           });
         }
       } else {
@@ -289,6 +294,7 @@ class _DocFormPageState extends ConsumerState<DocFormPage> {
           if (offices.isNotEmpty) 'send_to_office_id': offices,
           if (_toUserId.isNotEmpty) 'send_to_user_id': [_toUserId],
           if (_sendNote.text.trim().isNotEmpty) 'send_note': _sendNote.text.trim(),
+          ..._cover.body(toBoss),
           if (mainUp.isNotEmpty) 'document_main_url': mainUp,
           if (refsBody.isNotEmpty) 'reference_document': refsBody,
         };
@@ -394,6 +400,8 @@ class _DocFormPageState extends ConsumerState<DocFormPage> {
                     disabled: _busy,
                     onOfficeChanged: (v) => setState(() => _toOffice = v),
                     onUserChanged: (v) => setState(() => _toUserId = v),
+                    cover: _cover,
+                    defaultSubject: _objective.text,
                     footer: TextField(
                       controller: _sendNote,
                       enabled: !_busy,
